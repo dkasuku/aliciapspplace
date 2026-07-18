@@ -11,7 +11,7 @@ export async function POST(request: Request) {
     const response = await agent.chat({
       message,
       session_id: typeof body.session_id === "string" ? body.session_id : undefined,
-    });
+    }, process.env.TOPDUKA_AGENT_ID || process.env.NEXT_TOPDUKA_AGENT_ID);
     return NextResponse.json(response);
   } catch (error) {
     const status = error instanceof TopDukaApiError && error.status < 500 ? error.status : 502;

@@ -1,122 +1,116 @@
-# TopDuka storefront template
+# TopDuka Storefront
 
-A production-shaped Next.js storefront starter for the TopDuka public API. It includes a server-rendered catalog, responsive editorial UI, a server-only typed API client, and a product-aware customer agent.
+A complete Next.js storefront starter for a TopDuka store: server-rendered catalog, product pages, persistent cart, one-page checkout, configured delivery rates, VAT, Cash on Delivery, Paystack, order completion, and a product-aware customer agent.
 
-## Start in two minutes
+The UI is intentionally generic and easy to replace. The important commerce and API wiring is already done.
 
-1. Copy `.env.example` to `.env.local`.
-2. Add the API key from your TopDuka store:
+## What is included
 
-```env
-NEXT_TOPDUKA_API_KEY=ak_your_store_api_key
+- Product and category catalog loaded on the server
+- Product detail pages and a server-backed cart session
+- Single-page checkout with required name, email, and phone
+- Delivery zones and rates read from TopDuka—no guessed shipping prices
+- VAT calculated from store configuration
+- Cash on Delivery and Paystack initialization, callback verification, and cart completion
+- Store-specific AI chat using `/pb/v1/agent/chat/:agent_id`
+- Markdown answers and clickable product attachments in chat
+- Typed, server-only SDK coverage for every public API area
+
+## 1. Deploy TopDuka on ScaleNodes
+
+Sign in at [scalenodes.com](https://scalenodes.com), then:
+
+1. Open **ScaleNodes Suite** and choose **Launch a ScaleApp**.
+2. Enter an application name and select the **TopDuka** original app.
+3. Choose the managed node that will run it and deploy.
+4. Wait until the application and attached PostgreSQL service are running.
+5. Under **Service endpoints**, copy the public endpoint for **port 8080**. That is the backend URL used by this storefront. Port 3000 is the bundled TopDuka dashboard.
+
+In TopDuka, add products and categories, configure delivery zones and methods, set VAT, enable payment methods, create a public API key, and optionally configure a customer agent.
+
+## 2. Connect this storefront
+
+```bash
+cp .env.example .env.local
 ```
 
-3. Install and run:
+Edit `.env.local`:
+
+```env
+TOPDUKA_API_URL=https://your-app-port-8080.go.scalenodes.app
+TOPDUKA_API_KEY=ak_your_store_api_key
+TOPDUKA_AGENT_ID=optional_agent_uuid
+```
+
+You may paste either the ScaleNodes endpoint or the full endpoint ending in `/pb/v1`; the client normalizes both forms.
+
+The project also accepts the legacy names `NEXT_TOPDUKA_API_URL`, `NEXT_TOPDUKA_API_KEY`, and `NEXT_TOPDUKA_AGENT_ID`. Do not use `NEXT_PUBLIC_` for the API key: browsers never need this secret.
+
+## 3. Run locally
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). That single key is all you need when using the hosted TopDuka API.
+Open [http://localhost:3000](http://localhost:3000).
 
-For a local or self-hosted backend, optionally set:
+## Commerce flow
 
-```env
-NEXT_TOPDUKA_API_URL=http://localhost:8000/pb/v1
-```
+The browser only calls same-origin Next.js routes and Server Actions. The TopDuka API key remains on the server.
 
-Do not prefix the key with `NEXT_PUBLIC_`. The SDK imports `server-only`, and the browser talks to same-origin Route Handlers when it needs an interactive API call.
+1. Adding a product creates a TopDuka cart and saves its session ID in an HTTP-only cookie.
+2. Checkout loads the zones configured for the store.
+3. Selecting a zone requests current delivery methods and prices from TopDuka.
+4. The summary adds the selected delivery price and configured VAT.
+5. Cash orders complete immediately. Paystack orders redirect to Paystack, verify the callback server-side, and then complete the same cart.
+6. Successful completion clears the cart cookie.
 
 ## Project map
 
 ```text
 app/
-  page.tsx             SSR catalog data loader
-  api/agent/route.ts   safe browser-to-server customer agent bridge
+  page.tsx                 server-rendered storefront
+  products/[id]/page.tsx  product detail route
+  checkout/               checkout page and secure Server Actions
+  api/cart/route.ts        HTTP-only cart-session bridge
+  api/agent/route.ts       server-only customer-agent bridge
 components/
-  storefront.tsx       catalog filters and storefront interactions
-  agent-panel.tsx      customer-facing shopping assistant
+  storefront.tsx          replaceable catalog UI
+  cart-provider.tsx       shared cart state
+  cart-drawer.tsx         persistent cart controls
+  checkout.tsx            delivery, VAT and payment flow
+  agent-panel.tsx         markdown chat and product links
 lib/topduka/
-  client.ts            authentication, errors, base URL and fetch wrapper
-  routes.ts            one registry for every public endpoint
-  products.ts          products, categories and bookings
-  cart.ts              cart lifecycle
-  orders.ts            order list, detail and tracking
-  payments.ts          payment configuration and flow
-  store.ts             store information and public configuration
-  agent.ts             customer agent
-  types.ts             request and response types
+  client.ts               authentication, errors and fetch wrapper
+  products.ts             catalog, collections and bookings
+  cart.ts                 cart lifecycle
+  shipping.ts             zones and live rates
+  orders.ts               order lookup and tracking
+  payments.ts             configuration, initialize and verify
+  store.ts                store information and configuration
+  agent.ts                generic or agent-specific conversation
 ```
 
-Import API groups only in Server Components, Server Actions, or Route Handlers:
+## Public API coverage
 
-```ts
-import { products, store } from "@/lib/topduka";
+All paths are relative to `/pb/v1`.
 
-const [storeInfo, catalog] = await Promise.all([
-  store.info(),
-  products.list({ status: "active", limit: 24 }),
-]);
-```
+| Area | Routes |
+| --- | --- |
+| Products | `GET /products`, `/products/popular`, `/products/discounted`, `/products/new-arrivals`, `/products/most-sold`, `/products/best-selling` |
+| Categories | `GET /categories`, `/categories/:id/products` |
+| Bookings | `GET /products/:id/availability`, `POST /bookings` |
+| Cart | `GET/POST/DELETE /cart`, `POST /cart/update`, `/cart/clear`, `/cart/complete` |
+| Shipping | `GET /shipping/zones`, `POST /shipping/rates` |
+| Orders | `GET /orders`, `/orders/:id`, `/orders/track` |
+| Payments | `GET /payments/config`, `POST /payments/initialize`, `/payments/verify` |
+| Store | `GET /config`, `/store-info` |
+| AI | `POST /agent/chat`, `/agent/chat/:agent_id`, `/ai/discover` |
 
-## Complete public API coverage
+## Customize and deploy
 
-All registered `/pb/v1` routes are represented in `lib/topduka`. The client automatically sends `NEXT_TOPDUKA_API_KEY` as `x-api-key`.
-
-| Area | Method | Public route | SDK method |
-| --- | --- | --- | --- |
-| Products | GET | `/products` | `products.list()` |
-| Categories | GET | `/categories` | `products.categories()` |
-| Categories | GET | `/categories/:id/products` | `products.byCategory()` |
-| Products | GET | `/products/popular` | `products.popular()` |
-| Products | GET | `/products/discounted` | `products.discounted()` |
-| Products | GET | `/products/new-arrivals` | `products.newArrivals()` |
-| Products | GET | `/products/most-sold` | `products.mostSold()` |
-| Products | GET | `/products/best-selling` | `products.bestSelling()` |
-| Bookings | GET | `/products/:id/availability` | `products.availability()` |
-| Bookings | POST | `/bookings` | `products.createBooking()` |
-| Cart | GET | `/cart` | `cart.get()` |
-| Cart | POST | `/cart` | `cart.create()` |
-| Cart | POST | `/cart/update` | `cart.update()` |
-| Cart | POST | `/cart/complete` | `cart.complete()` |
-| Cart | POST | `/cart/clear` | `cart.clear()` |
-| Cart | DELETE | `/cart` | `cart.remove()` |
-| Orders | GET | `/orders` | `orders.list()` |
-| Orders | GET | `/orders/track` | `orders.track()` |
-| Orders | GET | `/orders/:id` | `orders.get()` |
-| Payments | GET | `/payments/config` | `payments.config()` |
-| Payments | POST | `/payments/initialize` | `payments.initialize()` |
-| Payments | POST | `/payments/verify` | `payments.verify()` |
-| Store | GET | `/config` | `store.configuration()` |
-| Store | GET | `/store-info` | `store.info()` |
-| Agent | POST | `/agent/chat` | `agent.chat()` |
-
-Types reflect the current Go handlers and can be extended in `types.ts` as your storefront grows.
-
-## Customer agent
-
-The floating “Ask the shop” panel posts to `/api/agent` in this Next.js app. That handler calls TopDuka from the server, so the API key is never sent to the customer. The backend builds the agent context from the authenticated store and its active catalog; customers cannot supply system prompts or another store ID.
-
-Use it elsewhere on the server with:
-
-```ts
-import { agent } from "@/lib/topduka";
-
-const answer = await agent.chat({
-  message: "Which products are currently discounted?",
-  session_id: existingSessionId,
-});
-```
-
-## Customize
-
-- Change storefront composition and styling in `components/storefront.tsx`.
-- Replace the preview products in `app/page.tsx`; they only appear when an API catalog cannot be loaded.
-- Keep secrets and checkout mutations in Server Actions or Route Handlers.
-- Use the cart, order, booking, and payment modules to add your preferred checkout flow.
-
-## Production checks
+Replace the components and Tailwind styles without changing `lib/topduka` or the secure server bridges. Before deploying:
 
 ```bash
 npm run lint
@@ -124,16 +118,4 @@ npm run build
 npm start
 ```
 
-The home route is rendered dynamically on the server, preserving SSR for store and catalog data.
-
-## Deploy on ScaleNodes
-
-You can deploy this storefront on [ScaleNodes](https://scalenodes.com):
-
-1. Push the template to your Git repository and create a Node.js web service on ScaleNodes.
-2. Use `npm ci && npm run build` as the build command.
-3. Use `npm start` as the start command and expose port `3000`.
-4. Add `NEXT_TOPDUKA_API_KEY` as a secret environment variable.
-5. Deploy and attach your domain.
-
-Set `NEXT_TOPDUKA_API_URL` only when the storefront should use a different TopDuka API origin.
+On ScaleNodes or another Node.js host, expose port `3000` and add the three environment variables as secrets. Use `npm ci && npm run build` as the build command and `npm start` as the start command.

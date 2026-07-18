@@ -21,5 +21,9 @@ export const routes = {
   paymentVerify: "/payments/verify",
   configuration: "/config",
   storeInfo: "/store-info",
+  shippingZones: "/shipping/zones",
+  shippingRates: "/shipping/rates",
   agentChat: "/agent/chat",
+  agentChatWithId: (id: string) => `/agent/chat/${encodeURIComponent(id)}`,
+  aiDiscover: "/ai/discover",
 } as const;

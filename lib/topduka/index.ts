@@ -7,5 +7,6 @@ export { orders } from "./orders";
 export { payments } from "./payments";
 export { products } from "./products";
 export { routes } from "./routes";
+export { shipping } from "./shipping";
 export { store } from "./store";
 export type * from "./types";

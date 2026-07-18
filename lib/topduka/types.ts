@@ -95,8 +95,10 @@ export interface CreateCartInput {
 export interface CompleteCartInput {
   payment_method: string;
   full_name: string;
-  email?: string;
-  phone_number?: string;
+  email: string;
+  phone_number: string;
+  shipping_method_id?: UUID;
+  transaction_id?: string;
   address_line1?: string;
   address_line2?: string;
   city?: string;
@@ -112,8 +114,24 @@ export interface CartSession {
 }
 
 export interface Cart extends CartSession {
-  items?: Array<Record<string, unknown>>;
+  items?: CartItem[];
+  subtotal?: number | string;
   total?: number | string;
+  item_count?: number;
+  [key: string]: unknown;
+}
+
+export interface CartItem {
+  id?: UUID;
+  product_id: UUID;
+  name?: string;
+  product_name?: string;
+  quantity: number;
+  price?: number | string;
+  unit_price?: number | string;
+  total?: number | string;
+  image?: string | null;
+  images?: string[] | null;
   [key: string]: unknown;
 }
 
@@ -125,6 +143,9 @@ export interface Order {
 }
 
 export interface PaymentConfig {
+  cash_enabled?: boolean;
+  paystack_configured?: boolean;
+  paystack_enabled?: boolean;
   [key: string]: unknown;
 }
 
@@ -174,12 +195,56 @@ export interface StoreConfiguration {
   cash_enabled?: boolean;
   paystack_public_key?: string;
   paystack_configured?: boolean;
+  paystack_enabled?: boolean;
   paypal_configured?: boolean;
   stripe_configured?: boolean;
   flutterwave_configured?: boolean;
   mpesa_configured?: boolean;
   pesapal_configured?: boolean;
   [key: string]: unknown;
+}
+
+export interface ShippingMethod {
+  id: UUID;
+  zone_id: UUID;
+  name: string;
+  type: "flat_rate" | "free_shipping" | "local_pickup" | string;
+  price: number | string;
+  free_over_amount?: number | string | null;
+  is_active?: boolean;
+}
+
+export interface ShippingZone {
+  id: UUID;
+  name: string;
+  country?: string | null;
+  state_province?: string | null;
+  city?: string | null;
+  methods?: ShippingMethod[];
+  [key: string]: unknown;
+}
+
+export interface ShippingAddress {
+  address_line1: string;
+  address_line2?: string;
+  city: string;
+  state_province?: string;
+  postal_code?: string;
+  country: string;
+  google_place_id?: string;
+  latitude?: number;
+  longitude?: number;
+}
+
+export interface ShippingRateRequest {
+  address: ShippingAddress;
+  subtotal: number;
+}
+
+export interface ShippingRateResponse {
+  zone_id: UUID;
+  zone_name: string;
+  methods: ShippingMethod[];
 }
 
 export interface AgentMessage {

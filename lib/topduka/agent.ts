@@ -3,8 +3,8 @@ import { routes } from "./routes";
 import type { AgentChatInput, AgentChatResponse } from "./types";
 
 export const agent = {
-  chat: (input: AgentChatInput) =>
-    topdukaRequest<AgentChatResponse>(routes.agentChat, {
+  chat: (input: AgentChatInput, agentId?: string) =>
+    topdukaRequest<AgentChatResponse>(agentId ? routes.agentChatWithId(agentId) : routes.agentChat, {
       method: "POST",
       body: {
         messages: [
@@ -14,4 +14,6 @@ export const agent = {
         session_id: input.session_id,
       },
     }),
+  discover: (input: Record<string, unknown>) =>
+    topdukaRequest<Record<string, unknown>>(routes.aiDiscover, { method: "POST", body: input }),
 };

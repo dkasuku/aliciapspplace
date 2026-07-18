@@ -1,8 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import type { Category, Product, StoreInfo } from "@/lib/topduka/types";
 import { AgentPanel } from "./agent-panel";
+import { useCart } from "./cart-provider";
 
 interface StorefrontProps {
   store: StoreInfo;
@@ -19,12 +21,10 @@ function money(value: number | string, currency = "USD") {
 
 export function Storefront({ store, products, categories, setupMessage, showingDemo }: StorefrontProps) {
   const [activeCategory, setActiveCategory] = useState("all");
-  const [cartItems, setCartItems] = useState<Product[]>([]);
-  const [cartOpen, setCartOpen] = useState(false);
+  const { cart, setOpen, update, loading: cartLoading } = useCart();
   const storeName = store.name || "Your Store";
   const currency = store.currency || "USD";
-  const cartCount = cartItems.length;
-  const cartTotal = cartItems.reduce((total, item) => total + Number(item.sales_price ?? item.price), 0);
+  const cartCount = cart.item_count ?? cart.items?.reduce((sum, item) => sum + item.quantity, 0) ?? 0;
   const visibleProducts = useMemo(
     () => activeCategory === "all" ? products : products.filter((product) => product.categories?.includes(activeCategory)),
     [activeCategory, products],
@@ -42,7 +42,7 @@ export function Storefront({ store, products, categories, setupMessage, showingD
           <a className="hover:text-[#ec4b24]" href="#story">Our story</a>
           <a className="hover:text-[#ec4b24]" href="#help">Help</a>
         </nav>
-        <button onClick={() => setCartOpen(true)} className="border border-[#171811] bg-[#171811] px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] text-[#f4f0e8] transition-transform hover:-translate-y-0.5" type="button" aria-label={`Cart with ${cartCount} items`}>
+        <button onClick={() => setOpen(true)} className="border border-[#171811] bg-[#171811] px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] text-[#f4f0e8] transition-transform hover:-translate-y-0.5" type="button" aria-label={`Cart with ${cartCount} items`}>
           Bag [{String(cartCount).padStart(2, "0")}]
         </button>
       </header>
@@ -97,10 +97,10 @@ export function Storefront({ store, products, categories, setupMessage, showingD
                     <img src={image} alt={product.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" />
                   ) : <div className="flex h-full items-center justify-center font-display text-[8rem] font-black text-[#171811]/10">{String(index + 1).padStart(2, "0")}</div>}
                   <span className="absolute left-3 top-3 bg-[#f4f0e8] px-2 py-1 text-[9px] font-bold uppercase tracking-[0.18em]">In the edit</span>
-                  <button type="button" onClick={() => setCartItems((items) => [...items, product])} className="absolute bottom-3 right-3 translate-y-16 bg-[#171811] px-4 py-3 text-[10px] font-bold uppercase tracking-[0.16em] text-white transition-transform group-hover:translate-y-0 focus:translate-y-0">Add to bag +</button>
+                  <button disabled={cartLoading || product.id.startsWith("demo-")} type="button" onClick={async () => { await update(product.id, 1); setOpen(true); }} className="absolute bottom-3 right-3 translate-y-16 bg-[#171811] px-4 py-3 text-[10px] font-bold uppercase tracking-[0.16em] text-white transition-transform group-hover:translate-y-0 focus:translate-y-0 disabled:opacity-50">Add to bag +</button>
                 </div>
                 <div className="flex items-start justify-between gap-4">
-                  <div><h3 className="font-display text-2xl font-bold tracking-[-0.025em]">{product.name}</h3><p className="mt-1 line-clamp-2 text-sm leading-6 text-[#171811]/55">{product.description || "Made for daily use and designed to last."}</p></div>
+                  <div><Link href={`/products/${product.id}`} className="font-display text-2xl font-bold tracking-[-0.025em] hover:text-[#ec4b24]">{product.name}</Link><p className="mt-1 line-clamp-2 text-sm leading-6 text-[#171811]/55">{product.description || "Made for daily use and designed to last."}</p></div>
                   <span className="shrink-0 text-sm font-bold">{money(price, currency)}</span>
                 </div>
               </article>
@@ -121,29 +121,6 @@ export function Storefront({ store, products, categories, setupMessage, showingD
         <div><p className="font-display text-4xl font-black tracking-[-0.05em]">{storeName}<span className="text-[#ec4b24]">.</span></p><p className="mt-3 text-sm text-[#171811]/60">Powered by TopDuka. Deploy anywhere Node.js runs.</p></div>
         <div className="text-xs font-bold uppercase tracking-[0.15em]">© {new Date().getFullYear()} · All goods, good.</div>
       </footer>
-      {cartOpen && (
-        <div className="fixed inset-0 z-[60] bg-[#171811]/45" role="presentation" onClick={() => setCartOpen(false)}>
-          <aside onClick={(event) => event.stopPropagation()} className="ml-auto flex h-full w-full max-w-md flex-col border-l border-[#171811] bg-[#f4f0e8]" aria-label="Shopping bag">
-            <header className="flex items-center justify-between border-b border-[#171811] bg-[#d9ff43] px-5 py-5">
-              <h2 className="font-display text-3xl font-black">Your bag [{String(cartCount).padStart(2, "0")}]</h2>
-              <button type="button" onClick={() => setCartOpen(false)} className="p-2 text-2xl" aria-label="Close shopping bag">×</button>
-            </header>
-            <div className="flex-1 overflow-y-auto p-5">
-              {cartItems.length === 0 ? <p className="mt-16 text-center font-display text-2xl text-[#171811]/55">Your bag is waiting for something good.</p> : cartItems.map((item, index) => (
-                <div key={`${item.id}-${index}`} className="flex items-start justify-between gap-4 border-b border-[#171811]/20 py-5">
-                  <div><p className="font-display text-xl font-bold">{item.name}</p><p className="mt-1 text-xs uppercase tracking-wider">{money(item.sales_price ?? item.price, currency)}</p></div>
-                  <button type="button" onClick={() => setCartItems((items) => items.filter((_, itemIndex) => itemIndex !== index))} className="border-b border-[#171811] text-[10px] font-bold uppercase tracking-wider">Remove</button>
-                </div>
-              ))}
-            </div>
-            <div className="border-t border-[#171811] p-5">
-              <div className="mb-5 flex justify-between font-display text-2xl font-black"><span>Total</span><span>{money(cartTotal, currency)}</span></div>
-              <button type="button" disabled={cartItems.length === 0} className="w-full bg-[#ec4b24] px-5 py-4 text-xs font-black uppercase tracking-[0.18em] disabled:opacity-40">Continue to checkout</button>
-              <p className="mt-3 text-center text-[10px] leading-4 text-[#171811]/55">Connect this action to the included `cart` and `payments` SDK modules.</p>
-            </div>
-          </aside>
-        </div>
-      )}
       <AgentPanel storeName={storeName} />
     </main>
   );

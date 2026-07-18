@@ -1,7 +1,5 @@
 import "server-only";
 
-const DEFAULT_API_URL = "https://api.topduka.com/pb/v1";
-
 type QueryValue = string | number | boolean | null | undefined | Array<string | number>;
 
 interface RequestOptions extends Omit<RequestInit, "body"> {
@@ -22,17 +20,27 @@ export class TopDukaApiError extends Error {
 }
 
 function getConfig() {
-  const apiKey = process.env.NEXT_TOPDUKA_API_KEY;
+  const apiKey = process.env.TOPDUKA_API_KEY || process.env.NEXT_TOPDUKA_API_KEY;
   if (!apiKey) {
     throw new TopDukaApiError(
-      "NEXT_TOPDUKA_API_KEY is missing. Copy .env.example to .env.local and add your store API key.",
+      "TOPDUKA_API_KEY is missing. Copy .env.example to .env.local and add your store API key.",
       500,
     );
   }
 
+  const configuredUrl = process.env.TOPDUKA_API_URL || process.env.NEXT_TOPDUKA_API_URL;
+  if (!configuredUrl) {
+    throw new TopDukaApiError(
+      "TOPDUKA_API_URL is missing. Use the port 8080 endpoint from your TopDuka ScaleApp.",
+      500,
+    );
+  }
+
+  const origin = configuredUrl.replace(/\/$/, "");
+
   return {
     apiKey,
-    apiUrl: (process.env.NEXT_TOPDUKA_API_URL || DEFAULT_API_URL).replace(/\/$/, ""),
+    apiUrl: origin.endsWith("/pb/v1") ? origin : `${origin}/pb/v1`,
   };
 }
 
