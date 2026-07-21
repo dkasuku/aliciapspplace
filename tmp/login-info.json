@@ -1,0 +1,42 @@
+{
+  "url": "https://aliciastorephone.go.scalenodes.app/",
+  "inputs": [
+    {
+      "type": "email",
+      "name": "email",
+      "id": "email",
+      "placeholder": "Enter your email",
+      "required": true
+    },
+    {
+      "type": "password",
+      "name": "password",
+      "id": "password",
+      "placeholder": "Enter your password",
+      "required": true
+    }
+  ],
+  "buttons": [
+    {
+      "text": "",
+      "type": "button",
+      "class": "absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 transition-colors hover:text-gray-600 disabled:opacity-100"
+    },
+    {
+      "text": "Forgot password?",
+      "type": "button",
+      "class": "text-xs font-medium text-black transition-colors hover:text-primary"
+    },
+    {
+      "text": "Continue With Email",
+      "type": "submit",
+      "class": "inline-flex h-9 w-full items-center justify-center gap-2 rounded-full bg-primary px-5 text-xs font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-80"
+    }
+  ],
+  "links": [
+    {
+      "text": "Sign Up & Start Selling",
+      "href": "/sign-up"
+    }
+  ]
+}

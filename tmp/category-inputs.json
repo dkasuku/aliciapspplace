@@ -1,0 +1,10 @@
+[
+  {
+    "tag": "INPUT",
+    "type": "search",
+    "name": "",
+    "id": "",
+    "placeholder": "Search categories...",
+    "required": false
+  }
+]

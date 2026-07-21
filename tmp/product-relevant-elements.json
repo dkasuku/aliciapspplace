@@ -1,0 +1,20 @@
+[
+  {
+    "idx": 8,
+    "tag": "A",
+    "text": "Products",
+    "ariaLabel": null,
+    "class": "child-nav-link block rounded-md px-2 py-1 text-[11.5px] transition-colors font-semibold text-black",
+    "href": "/dashboard/listing/products",
+    "visible": true
+  },
+  {
+    "idx": 33,
+    "tag": "A",
+    "text": "New product",
+    "ariaLabel": null,
+    "class": "inline-flex h-8 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-1.5 text-[13px] font-medium",
+    "href": "/dashboard/listing/products/add",
+    "visible": true
+  }
+]

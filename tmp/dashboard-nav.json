@@ -1,0 +1,35 @@
+{
+  "url": "https://aliciastorephone.go.scalenodes.app/dashboard",
+  "links": [
+    {
+      "tag": "BUTTON",
+      "text": "A Alicia Phone Store",
+      "href": null,
+      "class": "group flex h-9 items-center gap-2 rounded-xl px-1.5 pr-2 text-sm transition hover:bg-white/10"
+    },
+    {
+      "tag": "A",
+      "text": "Products",
+      "href": "/dashboard/listing/products",
+      "class": "child-nav-link block rounded-md px-2 py-1 text-[11.5px] transition-colors font-medium text-zinc-700 hover:text-black"
+    },
+    {
+      "tag": "A",
+      "text": "Categories",
+      "href": "/dashboard/listing/categories",
+      "class": "child-nav-link block rounded-md px-2 py-1 text-[11.5px] transition-colors font-medium text-zinc-700 hover:text-black"
+    },
+    {
+      "tag": "A",
+      "text": "Store profile",
+      "href": "/dashboard/settings/store",
+      "class": "child-nav-link block rounded-md px-2 py-1 text-[11.5px] transition-colors font-medium text-zinc-700 hover:text-black"
+    },
+    {
+      "tag": "A",
+      "text": "Tax settings",
+      "href": "/dashboard/settings/taxes",
+      "class": "child-nav-link block rounded-md px-2 py-1 text-[11.5px] transition-colors font-medium text-zinc-700 hover:text-black"
+    }
+  ]
+}

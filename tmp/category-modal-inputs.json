@@ -1,0 +1,71 @@
+[
+  {
+    "tag": "INPUT",
+    "type": "search",
+    "name": "",
+    "id": "",
+    "placeholder": "Search categories...",
+    "value": "",
+    "required": false,
+    "label": "Search categories"
+  },
+  {
+    "tag": "INPUT",
+    "type": "text",
+    "name": "name",
+    "id": "",
+    "placeholder": "e.g., Jackets",
+    "value": "",
+    "required": true,
+    "label": "Category name *"
+  },
+  {
+    "tag": "TEXTAREA",
+    "type": "textarea",
+    "name": "",
+    "id": "",
+    "placeholder": "Describe what products belong in this category (optional)...",
+    "value": "",
+    "required": false,
+    "label": "Description"
+  },
+  {
+    "tag": "SELECT",
+    "type": "select-one",
+    "name": "is_active",
+    "id": "",
+    "value": "true",
+    "required": false,
+    "label": "Status *  ActiveInactive"
+  },
+  {
+    "tag": "INPUT",
+    "type": "hidden",
+    "name": "placeholder_type",
+    "id": "",
+    "placeholder": "",
+    "value": "image",
+    "required": false,
+    "label": "Choose image"
+  },
+  {
+    "tag": "INPUT",
+    "type": "hidden",
+    "name": "placeholder_value",
+    "id": "",
+    "placeholder": "",
+    "value": "",
+    "required": false,
+    "label": "Choose image"
+  },
+  {
+    "tag": "INPUT",
+    "type": "file",
+    "name": "placeholder_file",
+    "id": "category-image-upload",
+    "placeholder": "",
+    "value": "",
+    "required": false,
+    "label": "Choose image"
+  }
+]

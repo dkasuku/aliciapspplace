@@ -1,0 +1,56 @@
+{
+  "url": "https://aliciastorephone.go.scalenodes.app/sign-up",
+  "inputs": [
+    {
+      "type": "text",
+      "name": "fullName",
+      "id": "fullName",
+      "placeholder": "Enter your full name",
+      "required": true
+    },
+    {
+      "type": "email",
+      "name": "email",
+      "id": "email",
+      "placeholder": "Enter your email",
+      "required": true
+    },
+    {
+      "type": "password",
+      "name": "password",
+      "id": "password",
+      "placeholder": "Create a password",
+      "required": true
+    },
+    {
+      "type": "password",
+      "name": "confirmPassword",
+      "id": "confirmPassword",
+      "placeholder": "Confirm your password",
+      "required": true
+    }
+  ],
+  "buttons": [
+    {
+      "text": "",
+      "type": "button",
+      "class": "absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 transition-colors hover:text-gray-600 disabled:opacity-100"
+    },
+    {
+      "text": "",
+      "type": "button",
+      "class": "absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 transition-colors hover:text-gray-600 disabled:opacity-100"
+    },
+    {
+      "text": "Continue",
+      "type": "submit",
+      "class": "inline-flex h-8 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-1.5 text-[13px] font-medium transition-all disabled:pointer-events-none disabled:opacity-50 border border-primary bg-primary text-primary-foreground shadow-sm shadow-lime-300/35 hover:border-[#c8ec31] hover:bg-[#c8ec31] w-full !rounded-full"
+    }
+  ],
+  "links": [
+    {
+      "text": "Already have an account? Sign In",
+      "href": "/"
+    }
+  ]
+}

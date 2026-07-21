@@ -1,0 +1,42 @@
+TopDuka
+Search
+CTRL
+K
+A
+Alicia Phone Store
+Home
+Orders
+Bookings
+Catalog
+Products
+Categories
+Tags
+Agents
+Discounts
+Shipping
+Inventory
+People
+Support
+Payments
+Integrations
+API Keys
+Settings
+Products
+
+Manage the products, pricing, and inventory available in your store.
+
+New product
+Search products
+Visible
+Active
+Draft
+Inactive
+	PRODUCT	CATEGORIES	TAGS	PRICE	STOCK	STATUS	ACTIONS
+
+No products yet
+
+Create your first product to start selling in the catalog.
+
+Showing 0 to 0 products
+Previous
+Next

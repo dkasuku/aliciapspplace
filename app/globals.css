@@ -1,6 +1,19 @@
 @import "tailwindcss";
 
 @theme inline {
-  --font-sans: "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
-  --font-display: Georgia, "Times New Roman", serif;
+  --font-sans: "Helvetica Neue", Arial, sans-serif;
+  --font-display: var(--font-comfortaa), "Helvetica Neue", sans-serif;
+  --color-green-primary: #166534;
+  --color-green-dark: #14532d;
+  --color-green-light: #dcfce7;
+  --color-green-bright: #22c55e;
+  --color-green-muted: #f0fdf4;
+  --color-cream: #f8faf5;
+  --color-ink: #0f172a;
+  --color-stone: #64748b;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translate(-50%, 10px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
 }

@@ -1,17 +1,20 @@
 import type { Metadata } from "next";
+import { Comfortaa } from "next/font/google";
 import "./globals.css";
-import { CartDrawer } from "@/components/cart-drawer";
-import { CartProvider } from "@/components/cart-provider";
+
+const comfortaa = Comfortaa({ subsets: ["latin"], variable: "--font-comfortaa" });
 
 export const metadata: Metadata = {
-  title: "TopDuka Storefront",
-  description: "A fast, server-rendered storefront powered by the TopDuka public API.",
+  title: "Alicia Phone Store — Phones & Electronics",
+  description: "Premium phones, gadgets, and electronics. Fast delivery, secure checkout, and expert support.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className="scroll-smooth">
-      <body className="min-h-screen bg-[#f4f0e8] text-[#171811] antialiased"><CartProvider>{children}<CartDrawer /></CartProvider></body>
+    <html lang="en" className={`${comfortaa.variable} scroll-smooth`}>
+      <body className="min-h-screen bg-[#f8faf5] text-[#0f172a] antialiased">
+        {children}
+      </body>
     </html>
   );
 }
