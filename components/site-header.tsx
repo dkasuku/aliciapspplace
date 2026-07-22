@@ -100,7 +100,7 @@ export function SiteHeader({ siteContent }: { siteContent?: SiteContent }) {
             type="button"
             onClick={() => setMobileOpen((v) => !v)}
             aria-label="Toggle menu"
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[#cce0d1] text-[#123625] hover:bg-[#edf8ef] md:hidden"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[#cce0d1] text-[#123625] hover:bg-[#edf8ef] xl:hidden"
           >
             {mobileOpen ? (
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -147,7 +147,7 @@ export function SiteHeader({ siteContent }: { siteContent?: SiteContent }) {
         </div>
 
         {/* Desktop mega-menu */}
-        <nav className="hidden bg-[#147243] text-white md:block" onMouseLeave={() => setHoverMenu(null)}>
+        <nav className="hidden bg-[#147243] text-white xl:block" onMouseLeave={() => setHoverMenu(null)}>
           <div className="mx-auto flex max-w-7xl items-center gap-1 px-5">
             <Link href="/" className="flex shrink-0 items-center px-3 py-3 text-[11px] font-bold uppercase tracking-wider hover:bg-[#0d5933]">Home</Link>
             <Link href="/shop" className="flex shrink-0 items-center px-3 py-3 text-[11px] font-bold uppercase tracking-wider hover:bg-[#0d5933]">Shop all</Link>
@@ -174,7 +174,7 @@ export function SiteHeader({ siteContent }: { siteContent?: SiteContent }) {
 
         {/* Mobile slide-down menu */}
         {mobileOpen && (
-          <div className="border-t border-[#dbe5dc] bg-white md:hidden">
+          <div className="border-t border-[#dbe5dc] bg-white xl:hidden">
             <form onSubmit={handleSearch} className="px-5 py-3">
               <label className="flex overflow-hidden rounded-xl border border-[#cfdbd1] bg-[#f8faf8]">
                 <input

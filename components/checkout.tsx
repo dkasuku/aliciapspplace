@@ -40,16 +40,16 @@ export function Checkout() {
     return (
       <section className="mx-auto max-w-2xl px-5 py-32 text-center">
         <p className="mb-4 text-xs font-bold uppercase tracking-[0.25em] text-[#166534]">Order received</p>
-        <h1 className="font-display text-6xl font-black text-[#0f172a]">Thank you.</h1>
+        <h1 className="font-display text-4xl font-black text-[#0f172a] sm:text-6xl">Thank you.</h1>
         <p className="mt-6 text-[#0f172a]/65">Your order is confirmed. Check your email for the receipt and updates.</p>
         <Link href="/" className="mt-10 inline-block bg-[#166534] px-7 py-4 text-xs font-bold uppercase tracking-wider text-white hover:bg-[#14532d] transition-colors shadow-md">Continue shopping</Link>
       </section>
     );
 
   return (
-    <form onSubmit={submit} className="mx-auto max-w-6xl lg:grid-cols-[1fr_390px] bg-[#f8faf5]">
-      <div className="border-r border-[#166534]/10 px-5 py-12 md:px-10 bg-[#f8faf5]">
-        <div className="mb-6 flex items-center gap-3 text-[10px] font-bold uppercase tracking-[0.2em] text-[#166534]">
+    <form onSubmit={submit} className="mx-auto grid max-w-6xl bg-[#f8faf5] lg:grid-cols-[minmax(0,1fr)_390px]">
+      <div className="px-5 py-12 md:px-10 lg:border-r lg:border-[#166534]/10">
+        <div className="mb-6 flex min-w-0 items-center gap-2 overflow-x-auto whitespace-nowrap pb-1 text-[10px] font-bold uppercase tracking-[0.2em] text-[#166534]">
           <Link href="/" className="hover:text-[#14532d]">← Home</Link>
           <span className="text-[#cbd5e1]">/</span>
           <Link href="/cart" className="hover:text-[#14532d]">Bag</Link>
@@ -70,20 +70,21 @@ export function Checkout() {
           </div>
         </fieldset>
       </div>
-      <aside className="bg-white px-5 py-12 md:px-8 border-t md:border-t-0 md:border-l border-[#166534]/10">
+      <aside className="border-t border-[#166534]/10 bg-white px-5 py-12 md:px-8 lg:border-t-0 lg:border-l">
         <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#166534]">Order summary</p>
         <div className="mt-6 space-y-4">
           {cart.items?.map((item) => (
-            <div key={item.product_id} className="flex justify-between gap-4 border-b border-[#166534]/10 pb-4">
-              <span>{item.name || item.product_name || "Product"} × {item.quantity}</span>
-              <b>{num(item.total || num(item.price || item.unit_price) * item.quantity).toLocaleString()}</b>
+            <div key={item.product_id} className="flex min-w-0 justify-between gap-4 border-b border-[#166534]/10 pb-4">
+              <span className="min-w-0 break-words">{item.name || item.product_name || "Product"} × {item.quantity}</span>
+              <b className="shrink-0">{num(item.total || num(item.price || item.unit_price) * item.quantity).toLocaleString()}</b>
             </div>
           ))}
         </div>
         <div className="mt-7 space-y-3 text-sm">
-          <div className="flex justify-between border-t border-[#166534]/20 pt-5 font-display text-2xl font-black">
+          <div className="flex min-w-0 justify-between gap-4 border-t border-[#166534]/20 pt-5 font-display text-2xl font-black">
+            
             <span>Total</span>
-            <span>{total.toLocaleString()}</span>
+            <span className="shrink-0">{total.toLocaleString()}</span>
           </div>
         </div>
         <button disabled={busy || !cart.items?.length} className="mt-8 w-full bg-[#166534] px-5 py-5 text-xs font-black uppercase tracking-[0.18em] text-white hover:bg-[#14532d] transition-colors shadow-md disabled:opacity-40">

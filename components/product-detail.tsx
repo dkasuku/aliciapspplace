@@ -81,14 +81,14 @@ export function ProductDetail({ product, currency, relatedProducts = [] }: { pro
   return (
     <main className="min-h-screen bg-[#f7f8f5] pt-6">
       <div className="mx-auto max-w-6xl px-5 py-4">
-        <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-[0.2em] text-[#166534]">
-          <Link href="/" className="hover:text-[#14532d]">← Home</Link>
-          <span className="text-[#cbd5e1]">/</span>
-          <Link href="/shop" className="hover:text-[#14532d]">Shop all</Link>
-          <span className="text-[#cbd5e1]">/</span>
-          <Link href={`/#catalog`} className="hover:text-[#14532d]">Catalog</Link>
-          <span className="text-[#cbd5e1]">/</span>
-          <span className="text-[#5c7564]">{product.name}</span>
+        <div className="flex min-w-0 items-center gap-2 overflow-x-auto whitespace-nowrap pb-1 text-[10px] font-bold uppercase tracking-[0.2em] text-[#166534]">
+          <Link href="/" className="shrink-0 hover:text-[#14532d]">← Home</Link>
+          <span className="shrink-0 text-[#cbd5e1]">/</span>
+          <Link href="/shop" className="shrink-0 hover:text-[#14532d]">Shop all</Link>
+          <span className="shrink-0 text-[#cbd5e1]">/</span>
+          <Link href={`/#catalog`} className="shrink-0 hover:text-[#14532d]">Catalog</Link>
+          <span className="shrink-0 text-[#cbd5e1]">/</span>
+          <span className="shrink-0 text-[#5c7564]">{product.name}</span>
         </div>
       </div>
 
@@ -167,7 +167,7 @@ export function ProductDetail({ product, currency, relatedProducts = [] }: { pro
           {showStorage && (
             <div className="mt-6 border-t border-[#e2ece4] pt-6">
               <h3 className="text-xs font-bold uppercase tracking-wider text-[#0f172a]">Storage</h3>
-              <div className="mt-3 flex gap-3">
+              <div className="mt-3 flex flex-wrap gap-3">
                 {STORAGE_OPTIONS.map((storage, idx) => (
                   <button key={storage} type="button" onClick={() => setSelectedStorage(idx)} className={`rounded-xl border-2 px-5 py-2.5 text-sm font-bold transition ${selectedStorage === idx ? "border-[#147243] bg-[#dcfce7] text-[#147243]" : "border-[#dbe6dd] bg-white text-[#345140] hover:border-[#76c88c]"}`}>{storage}</button>
                 ))}

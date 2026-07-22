@@ -1,19 +1,22 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useCart } from "./cart-provider";
 
 export function FloatingCartButton() {
   const { cart } = useCart();
+  const pathname = usePathname();
   const count = cart.item_count ?? cart.items?.reduce((sum, item) => sum + item.quantity, 0) ?? 0;
-  if (count === 0) return null;
+  const isCartOrCheckout = pathname === "/cart" || pathname.startsWith("/checkout");
+  if (count === 0 || isCartOrCheckout) return null;
   const total = Number(cart.total || cart.subtotal || 0);
 
   return (
     <Link
       href="/cart"
       aria-label={`View bag with ${count} item${count === 1 ? "" : "s"}`}
-      className="fixed bottom-6 left-6 z-[65] flex items-center gap-3 rounded-2xl bg-[#147243] px-5 py-4 text-white shadow-2xl transition-all hover:bg-[#0d5933] hover:scale-105 active:scale-95"
+      className="fixed bottom-4 left-4 z-[65] flex items-center gap-2 rounded-2xl bg-[#147243] px-4 py-3 text-white shadow-2xl transition-all hover:bg-[#0d5933] hover:scale-105 active:scale-95 sm:bottom-6 sm:left-6 sm:gap-3 sm:px-5 sm:py-4"
     >
       <div className="relative">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
@@ -25,7 +28,7 @@ export function FloatingCartButton() {
           {count}
         </span>
       </div>
-      <div className="text-left">
+      <div className="hidden text-left sm:block">
         <p className="text-[9px] font-bold uppercase tracking-wider text-[#9de7ad]">View bag</p>
         <p className="text-sm font-black">KES {total.toLocaleString()}</p>
       </div>
