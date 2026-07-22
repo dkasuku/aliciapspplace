@@ -7,6 +7,9 @@ const comfortaa = Comfortaa({ subsets: ["latin"], variable: "--font-comfortaa" }
 export const metadata: Metadata = {
   title: "Alicia Phone Store — Phones & Electronics",
   description: "Premium phones, gadgets, and electronics. Fast delivery, secure checkout, and expert support.",
+  icons: {
+    icon: "/Phoneplacelg.png",
+  },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
