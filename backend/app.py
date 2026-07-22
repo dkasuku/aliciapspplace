@@ -1,9 +1,12 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
+from dotenv import load_dotenv
 from datetime import datetime, timezone
 import uuid as uuid_lib
 import os
+
+load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
