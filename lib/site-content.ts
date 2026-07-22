@@ -16,7 +16,7 @@ export interface SiteContent {
 
 const DEFAULT_CONTENT: SiteContent = {
   deliveryBanner: { text: "Free delivery around Juja town", helpText: "Need help? Call +254 724 126 009", enabled: true },
-  heroSection: { badge: "The Alicia edit · 2026", title: "Technology that feels like yours.", subtitle: "Real products from the brands you know. Thoughtfully selected, clearly priced and ready to deliver.", ctaPrimary: "Shop featured", ctaSecondary: "Browse collection", enabled: true },
+  heroSection: { badge: "The Alicia Promo", title: "Technology that feels like yours.", subtitle: "Real products from the brands you know. Thoughtfully selected, clearly priced and ready to deliver.", ctaPrimary: "Shop featured", ctaSecondary: "Browse collection", enabled: true },
   promoCards: [
     { id: "promo-1", title: "Gaming, upgraded", detail: "Headsets, controllers & more", tone: "from-[#22103c] to-[#833c9e]", category: "Gaming", enabled: true },
     { id: "promo-2", title: "Sound without limits", detail: "Wireless audio for every day", tone: "from-[#0c2a1c] to-[#147243]", category: "Audio", enabled: true },
