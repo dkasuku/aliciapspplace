@@ -97,7 +97,7 @@ export function ProductDetail({ product, currency, relatedProducts = [] }: { pro
         <div className="flex flex-col gap-4">
           <div className="relative min-h-[300px] sm:min-h-[460px] overflow-hidden rounded-2xl bg-gradient-to-br from-[#dcfce7] to-[#f0fdf4] p-4 sm:p-6 md:p-10 flex items-center justify-center border border-[#dbe6dd]">
             {images.length > 0 ? (
-              <img src={images[selectedImage]} alt={product.name} className="h-full max-h-[560px] w-full object-contain rounded-xl" />
+              <img src={images[selectedImage]} alt={product.name} onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/Phoneplacelg.png"; }} className="h-full max-h-[560px] w-full object-contain rounded-xl" />
             ) : (
               <div className="flex h-full min-h-[420px] items-center justify-center font-display text-9xl font-black text-[#166534]/10">01</div>
             )}
@@ -115,7 +115,7 @@ export function ProductDetail({ product, currency, relatedProducts = [] }: { pro
             <div className="flex gap-3 overflow-x-auto pb-2">
               {images.map((img, idx) => (
                 <button key={idx} type="button" onClick={() => setSelectedImage(idx)} className={`relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border-2 bg-[#f8faf8] p-2 transition ${selectedImage === idx ? "border-[#147243]" : "border-[#dbe6dd] hover:border-[#76c88c]"}`} aria-label={`View image ${idx + 1}`}>
-                  <img src={img} alt={`${product.name} image ${idx + 1}`} className="h-full w-full object-contain mix-blend-multiply" />
+                  <img src={img} alt={`${product.name} image ${idx + 1}`} onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/Phoneplacelg.png"; }} className="h-full w-full object-contain mix-blend-multiply" />
                 </button>
               ))}
             </div>
