@@ -31,7 +31,6 @@ import {
 } from "@/components/ui/table";
 import type { Category, Product } from "@/lib/api/types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 const money = (v: number) => `KES ${Number(v || 0).toLocaleString()}`;
 
 export function ProductsManager({
@@ -118,8 +117,8 @@ export function ProductsManager({
     startTransition(async () => {
       try {
         const url = editing
-          ? `${API_URL}/api/products/${editing.id}`
-          : `${API_URL}/api/products`;
+          ? `/api/admin/products/${editing.id}`
+          : "/api/admin/products";
         const res = await fetch(url, {
           method: editing ? "PUT" : "POST",
           headers: { "Content-Type": "application/json" },
@@ -146,7 +145,11 @@ export function ProductsManager({
     if (!confirm("Delete this product?")) return;
     startTransition(async () => {
       try {
-        await fetch(`${API_URL}/api/products/${id}`, { method: "DELETE" });
+        const res = await fetch(`/api/admin/products/${id}`, { method: "DELETE" });
+        if (!res.ok) {
+          const data = await res.json().catch(() => null) as { error?: unknown } | null;
+          throw new Error(typeof data?.error === "string" ? data.error : "The product could not be deleted.");
+        }
         setProducts((prev) => prev.filter((p) => p.id !== id));
       } catch {}
     });

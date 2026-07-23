@@ -290,6 +290,7 @@ def update_product(product_id):
     product.barcode = data.get("barcode", product.barcode)
     product.images = json.dumps(data.get("images", []))
     product.status = data.get("status", product.status)
+    product.stock = int(data.get("stock", product.stock))
     product.low_stock_threshold = int(data.get("low_stock_threshold", product.low_stock_threshold))
     if "categories" in data:
         product.categories = []
