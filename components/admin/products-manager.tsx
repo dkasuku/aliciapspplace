@@ -46,6 +46,7 @@ export function ProductsManager({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [pending, startTransition] = useTransition();
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const filtered = products.filter((p) =>
     p.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -71,12 +72,14 @@ export function ProductsManager({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   function openCreate() {
+    setSaveError(null);
     setEditing(null);
     setForm(emptyForm);
     setDialogOpen(true);
   }
 
   function openEdit(product: Product) {
+    setSaveError(null);
     setEditing(product);
     setForm({
       name: product.name,
@@ -111,6 +114,7 @@ export function ProductsManager({
       rental_terms: form.product_type === "rental" ? form.rental_terms : undefined,
     };
 
+    setSaveError(null);
     startTransition(async () => {
       try {
         const url = editing
@@ -121,16 +125,20 @@ export function ProductsManager({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
-        if (res.ok) {
-          const saved = await res.json();
-          if (editing) {
-            setProducts((prev) => prev.map((p) => (p.id === saved.id ? saved : p)));
-          } else {
-            setProducts((prev) => [saved, ...prev]);
-          }
-          setDialogOpen(false);
+        if (!res.ok) {
+          const data = await res.json().catch(() => null) as { error?: unknown } | null;
+          throw new Error(typeof data?.error === "string" ? data.error : `The product could not be saved (HTTP ${res.status}).`);
         }
-      } catch {}
+        const saved = await res.json();
+        if (editing) {
+          setProducts((prev) => prev.map((p) => (p.id === saved.id ? saved : p)));
+        } else {
+          setProducts((prev) => [saved, ...prev]);
+        }
+        setDialogOpen(false);
+      } catch (error) {
+        setSaveError(error instanceof Error ? error.message : "The product could not be saved. Check the API connection.");
+      }
     });
   }
 
@@ -265,6 +273,7 @@ export function ProductsManager({
             <DialogTitle>{editing ? "Edit product" : "New product"}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
+            {saveError && <p role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{saveError}</p>}
             <div className="grid gap-2">
               <Label htmlFor="name">Product name *</Label>
               <Input id="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
