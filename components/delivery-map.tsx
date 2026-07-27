@@ -3,12 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import type * as LeafletNS from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { JUJA_TOWN_KM, NAIROBI_ZONE_KM, SHOP_LOCATION, type LatLng } from "@/lib/delivery";
+import { JUJA_TOWN_KM, NAIROBI_ZONE_KM, OUTSKIRTS_KM, SHOP_LOCATION, type LatLng } from "@/lib/delivery";
 
 /** One ring per price tier, so the fee jumps are visible on the map. */
 const RINGS = [
   { km: JUJA_TOWN_KM, fill: 0.08 },
   { km: NAIROBI_ZONE_KM, fill: 0.03 },
+  { km: OUTSKIRTS_KM, fill: 0.015 },
 ];
 
 const pin = (color: string, label: string) =>

@@ -38,7 +38,7 @@ export default function TermsPage() {
 
           <section>
             <h2 className="font-bold text-[#0f172a]">5. Delivery</h2>
-            <p className="mt-2">Delivery is charged from the location you pin at checkout, measured from Juja Square: KSh 100 within Juja town (up to 3 km), KSh 400 within Nairobi County up to 12 km, and KSh 600 outside Juja town, payable on order. If you are further out, we will contact you to confirm the exact delivery fee before dispatch. Collection from the shop is free. Estimated delivery times are provided at checkout but are not guaranteed. We are not liable for delays caused by third-party delivery providers.</p>
+            <p className="mt-2">Delivery is charged from the location you pin at checkout, measured from Juja Square: KSh 100 within Juja town (up to 3 km), KSh 400 within Nairobi County up to 12 km, KSh 600 outside Juja town (12 – 25 km) and KSh 700 beyond 25 km, both payable on order. Delivery never costs less than KSh 100 or more than KSh 700. If you are well outside our usual range we will contact you to confirm the exact delivery fee before dispatch. Collection from the shop is free. Estimated delivery times are provided at checkout but are not guaranteed. We are not liable for delays caused by third-party delivery providers.</p>
           </section>
 
           <section>

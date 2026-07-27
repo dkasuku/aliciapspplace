@@ -11,6 +11,12 @@ export const SHOP_LABEL = "Alicia Phone Place · Juja Square, Juja Town";
 export const JUJA_TOWN_KM = 3;
 /** Outer edge of the Nairobi County rate. */
 export const NAIROBI_ZONE_KM = 12;
+/** Beyond this we charge the top rate and confirm the fee by hand. */
+export const OUTSKIRTS_KM = 25;
+
+/** Delivery never costs less than this, and never more. */
+export const MIN_DELIVERY_FEE = 100;
+export const MAX_DELIVERY_FEE = 700;
 
 export type Fulfilment = "delivery" | "pickup";
 
@@ -42,8 +48,15 @@ export const DELIVERY_TIERS: DeliveryTier[] = [
   {
     id: "outside-juja",
     label: "Outside Juja town",
-    hint: `Further than ${NAIROBI_ZONE_KM} km — payable on order`,
+    hint: `${NAIROBI_ZONE_KM} – ${OUTSKIRTS_KM} km — payable on order`,
     fee: 600,
+    maxKm: OUTSKIRTS_KM,
+  },
+  {
+    id: "far",
+    label: "Further afield",
+    hint: `Over ${OUTSKIRTS_KM} km — payable on order`,
+    fee: MAX_DELIVERY_FEE,
     maxKm: null,
     note: "You are outside our usual range, so we will contact you to confirm the exact delivery fee before dispatch.",
   },
@@ -91,7 +104,9 @@ export function quoteDelivery(point: LatLng | null | undefined): DeliveryQuote {
   }
   const km = distanceKm(SHOP_LOCATION, point);
   const tier = tierForDistance(km);
-  return { fee: tier.fee, km, label: tier.label, tier: tier.id, note: tier.note };
+  // Delivery never falls below KES 100 or climbs past KES 700, whatever the tiers say.
+  const fee = Math.min(MAX_DELIVERY_FEE, Math.max(MIN_DELIVERY_FEE, tier.fee));
+  return { fee, km, label: tier.label, tier: tier.id, note: tier.note };
 }
 
 export function mapsLink(point: LatLng): string {
