@@ -83,10 +83,12 @@ export function OrderConfirmation({
           </div>
           <div className="flex justify-between gap-3">
             <span className="min-w-0 break-words">
-              {order.delivery_km != null ? `Delivery · ${order.delivery_km.toFixed(1)} km from Juja` : order.delivery_label}
+              {order.delivery_label}
+              {order.delivery_km != null && ` · ${order.delivery_km.toFixed(1)} km`}
             </span>
             <span className="shrink-0">{order.delivery_fee > 0 ? money(order.delivery_fee) : "Free"}</span>
           </div>
+          {order.delivery_note && <p className="text-xs text-amber-800">{order.delivery_note}</p>}
           {order.map_link && (
             <a href={order.map_link} target="_blank" rel="noopener noreferrer" className="block text-xs text-[#166534] underline">
               View the drop-off pin on the map

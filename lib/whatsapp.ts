@@ -17,6 +17,7 @@ export interface OrderSummary {
   delivery_fee: number;
   delivery_label: string;
   delivery_km?: number;
+  delivery_note?: string;
   map_link?: string;
   fulfilment: "delivery" | "pickup";
   drop_off?: { lat: number; lng: number };
@@ -75,9 +76,13 @@ export function buildOrderMessage(order: OrderSummary): string {
     lines.push(
       "",
       "*Drop-off pin*",
-      `${order.delivery_km?.toFixed(1)} km from Juja town`,
+      `${order.delivery_km?.toFixed(1)} km from Juja Square`,
       order.map_link,
     );
+  }
+
+  if (order.delivery_note) {
+    lines.push("", `⚠ ${order.delivery_note}`);
   }
 
   if (order.tracking_url) {

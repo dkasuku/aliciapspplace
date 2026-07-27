@@ -123,6 +123,7 @@ export async function completeCheckout(input: CheckoutInput): Promise<CheckoutRe
     delivery_fee: quote.fee,
     delivery_label: quote.label,
     delivery_km: dropOff ? quote.km : undefined,
+    delivery_note: dropOff ? quote.note : undefined,
     map_link: dropOff ? mapsLink(dropOff) : undefined,
     fulfilment: wantsDelivery ? "delivery" : "pickup",
     drop_off: dropOff ?? undefined,

@@ -6,7 +6,7 @@ const CONTENT_FILE = path.join(process.cwd(), "lib", "site-content.json");
 
 const DEFAULT_CONTENT = {
   deliveryBanner: {
-    text: "Free delivery around Juja town",
+    text: "Delivery from KSh 100 around Juja town",
     helpText: "Need help? Call +254 724 126 009",
     enabled: true,
   },

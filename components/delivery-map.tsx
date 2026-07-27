@@ -3,9 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import type * as LeafletNS from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { BAND_KM, SHOP_LOCATION, type LatLng } from "@/lib/delivery";
+import { JUJA_TOWN_KM, NAIROBI_ZONE_KM, SHOP_LOCATION, type LatLng } from "@/lib/delivery";
 
-const RING_KM = [2, 4, 6, 8, 10];
+/** One ring per price tier, so the fee jumps are visible on the map. */
+const RINGS = [
+  { km: JUJA_TOWN_KM, fill: 0.08 },
+  { km: NAIROBI_ZONE_KM, fill: 0.03 },
+];
 
 const pin = (color: string, label: string) =>
   `<span style="display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:${color};color:#fff;font:700 11px/1 system-ui;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.35)">${label}</span>`;
@@ -80,14 +84,13 @@ export function DeliveryMap({
         attribution: "© OpenStreetMap",
       }).addTo(map);
 
-      // Every ring is one more KES 70 band.
-      RING_KM.forEach((km) =>
+      RINGS.forEach((ring) =>
         L.circle(SHOP_LOCATION, {
-          radius: km * 1000,
+          radius: ring.km * 1000,
           color: "#166534",
           weight: 1,
           opacity: 0.35,
-          fillOpacity: km === BAND_KM ? 0.06 : 0.02,
+          fillOpacity: ring.fill,
         }).addTo(map),
       );
 
@@ -95,7 +98,7 @@ export function DeliveryMap({
         icon: L.divIcon({ html: pin("#0f172a", "A"), className: "", iconSize: [26, 26], iconAnchor: [13, 13] }),
       })
         .addTo(map)
-        .bindTooltip("Alicia Phone Place · Juja Town");
+        .bindTooltip("Alicia Phone Place · Juja Square, Juja Town");
 
       map.on("click", (event: LeafletNS.LeafletMouseEvent) =>
         onChangeRef.current({ lat: event.latlng.lat, lng: event.latlng.lng }),

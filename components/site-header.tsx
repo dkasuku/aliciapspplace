@@ -88,7 +88,7 @@ export function SiteHeader({ siteContent }: { siteContent?: SiteContent }) {
       {siteContent?.deliveryBanner?.enabled !== false && (
       <div className="border-t-4 border-[#147243] bg-[#0d2118] py-2 text-[10px] font-bold uppercase tracking-[0.16em] text-[#d9f2db]">
         <div className="mx-auto flex max-w-7xl justify-between px-5">
-          <span>{siteContent?.deliveryBanner?.text || "Free delivery around Juja town"}</span>
+          <span>{siteContent?.deliveryBanner?.text || "Delivery from KSh 100 around Juja town"}</span>
           <a href={`tel:${(siteContent?.footer?.phone || "+254724126009").replace(/\s/g, "")}`} className="hidden hover:text-white sm:block">{siteContent?.deliveryBanner?.helpText || "Need help? Call +254 724 126 009"}</a>
         </div>
       </div>

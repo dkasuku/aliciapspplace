@@ -4,7 +4,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { completeCheckout } from "@/app/(storefront)/checkout/actions";
-import { BAND_FEE, BAND_KM, quoteDelivery, type Fulfilment, type LatLng } from "@/lib/delivery";
+import { DELIVERY_TIERS, PICKUP_TIER, quoteDelivery, type Fulfilment, type LatLng } from "@/lib/delivery";
 import { ORDER_WHATSAPP_DISPLAY, type OrderSummary } from "@/lib/whatsapp";
 import { OrderConfirmation } from "./order-confirmation";
 import { useCart } from "./cart-provider";
@@ -132,31 +132,52 @@ export function Checkout() {
               checked={delivering}
               onSelect={() => setFulfilment("delivery")}
               title="Deliver to me"
-              detail={`KES ${BAND_FEE} for the first ${BAND_KM} km, then KES ${BAND_FEE} per extra ${BAND_KM} km.`}
+              detail="Priced from your pin, measured from Juja Square."
             />
             <Choice
               checked={!delivering}
               onSelect={() => setFulfilment("pickup")}
               title="Collect from the shop"
-              detail="Juja Town — no delivery fee."
+              detail={`${PICKUP_TIER.hint} — no delivery fee.`}
             />
           </div>
 
           {delivering && (
             <div className="mt-6">
+              <ul className="mb-5 divide-y divide-[#166534]/10 border border-[#166534]/20 bg-white text-sm">
+                {DELIVERY_TIERS.map((tier) => (
+                  <li
+                    key={tier.id}
+                    className={`flex flex-wrap items-center justify-between gap-2 px-4 py-3 ${
+                      dropOff && quote.tier === tier.id ? "bg-[#f0fdf4]" : ""
+                    }`}
+                  >
+                    <span className="min-w-0">
+                      <b className="text-[#0f172a]">{tier.label}</b>
+                      <span className="block text-xs text-[#0f172a]/55">{tier.hint}</span>
+                    </span>
+                    <b className="shrink-0 text-[#166534]">{money(tier.fee)}</b>
+                  </li>
+                ))}
+              </ul>
+
               <DeliveryMap value={dropOff} onChange={setDropOff} />
+
               <div
                 className={`mt-3 border p-4 text-sm ${
                   dropOff ? "border-[#166534]/30 bg-white" : "border-amber-500/60 bg-amber-50 text-amber-900"
                 }`}
               >
                 {dropOff ? (
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="text-[#0f172a]/70">
-                      <b className="text-[#0f172a]">{quote.km.toFixed(1)} km</b> from Juja town · {quote.label}
-                    </span>
-                    <b className="text-[#166534]">{money(quote.fee)} delivery</b>
-                  </div>
+                  <>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-[#0f172a]/70">
+                        <b className="text-[#0f172a]">{quote.km.toFixed(1)} km</b> from Juja Square · {quote.label}
+                      </span>
+                      <b className="text-[#166534]">{money(quote.fee)} delivery</b>
+                    </div>
+                    {quote.note && <p className="mt-2 text-xs text-amber-800">{quote.note}</p>}
+                  </>
                 ) : (
                   "Drop a pin on the map to see your delivery fee."
                 )}
@@ -183,7 +204,7 @@ export function Checkout() {
           </div>
           <div className="flex justify-between gap-4 text-[#0f172a]/70">
             <span className="min-w-0 break-words">
-              {delivering ? (dropOff ? `Delivery · ${quote.km.toFixed(1)} km` : "Delivery") : "Collection · Juja Town"}
+              {delivering ? (dropOff ? `Delivery · ${quote.label}` : "Delivery") : "Collection · Juja Square"}
             </span>
             <span className="shrink-0">
               {delivering ? (dropOff ? money(quote.fee) : "Pin your spot") : "Free"}
