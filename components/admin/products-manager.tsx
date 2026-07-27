@@ -46,6 +46,7 @@ export function ProductsManager({
   const [editing, setEditing] = useState<Product | null>(null);
   const [pending, startTransition] = useTransition();
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const filtered = products.filter((p) =>
     p.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -155,21 +156,54 @@ export function ProductsManager({
     });
   }
 
-  function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  /**
+   * Uploads to object storage and stores the returned URL. Falls back to an
+   * inline data URI only when storage is not configured — that path bloats the
+   * database and every catalogue response, so it is a stopgap, not the plan.
+   */
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files;
     if (!files) return;
-    Array.from(files).forEach((file) => {
-      if (file.size > 2 * 1024 * 1024) {
-        alert(`${file.name} is too large. Max 2MB per image.`);
-        return;
-      }
-      const reader = new FileReader();
-      reader.onload = () => {
-        setForm((prev) => ({ ...prev, images: [...prev.images, reader.result as string] }));
-      };
-      reader.readAsDataURL(file);
-    });
+    const chosen = Array.from(files);
     if (fileInputRef.current) fileInputRef.current.value = "";
+
+    setUploading(true);
+    try {
+      for (const file of chosen) {
+        if (file.size > 10 * 1024 * 1024) {
+          alert(`${file.name} is too large. Max 10MB per image.`);
+          continue;
+        }
+
+        const body = new FormData();
+        body.append("file", file);
+        const response = await fetch("/api/admin/upload", { method: "POST", body });
+        const payload = (await response.json().catch(() => null)) as { url?: string; error?: string } | null;
+
+        if (response.ok && payload?.url) {
+          setForm((prev) => ({ ...prev, images: [...prev.images, payload.url as string] }));
+          continue;
+        }
+
+        if (response.status === 503) {
+          if (file.size > 2 * 1024 * 1024) {
+            alert(`${file.name}: image storage is not configured, so images must be under 2MB.`);
+            continue;
+          }
+          const dataUri = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.readAsDataURL(file);
+          });
+          setForm((prev) => ({ ...prev, images: [...prev.images, dataUri] }));
+          continue;
+        }
+
+        alert(`${file.name}: ${payload?.error || "Upload failed."}`);
+      }
+    } finally {
+      setUploading(false);
+    }
   }
 
   function removeImage(index: number) {
@@ -380,11 +414,12 @@ export function ProductsManager({
                 ))}
                 <button
                   type="button"
+                  disabled={uploading}
                   onClick={() => fileInputRef.current?.click()}
-                  className="flex h-24 w-24 flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-[#166534]/30 text-[#64748b] hover:border-[#166534] hover:bg-[#f0fdf4]"
+                  className="flex h-24 w-24 flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-[#166534]/30 text-[#64748b] hover:border-[#166534] hover:bg-[#f0fdf4] disabled:opacity-50"
                 >
                   <Upload className="h-5 w-5" />
-                  <span className="text-[10px] font-medium">Upload</span>
+                  <span className="text-[10px] font-medium">{uploading ? "Uploading…" : "Upload"}</span>
                 </button>
               </div>
               <input
@@ -395,7 +430,7 @@ export function ProductsManager({
                 onChange={handleImageUpload}
                 className="hidden"
               />
-              <p className="text-xs text-[#94a3b8]">Upload product images (max 2MB each). You can also paste image URLs below.</p>
+              <p className="text-xs text-[#94a3b8]">Upload product images (max 10MB each — resized and stored automatically). You can also paste image URLs below.</p>
               <div className="flex gap-2">
                 <Input
                   placeholder="Paste image URL..."

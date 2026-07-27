@@ -558,6 +558,101 @@ def get_sale(sale_id):
     return jsonify(sale.to_dict())
 
 
+# ── Image uploads (Backblaze B2, S3-compatible) ──────────────────────────────
+
+# Widest edge we keep. Bigger than any storefront slot, small enough to stay light.
+MAX_IMAGE_EDGE = 1400
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+
+
+def b2_settings():
+    return {
+        "key_id": os.environ.get("B2_KEY_ID"),
+        "app_key": os.environ.get("B2_APPLICATION_KEY"),
+        "bucket": os.environ.get("B2_BUCKET"),
+        "endpoint": os.environ.get("B2_ENDPOINT"),  # e.g. https://s3.us-west-004.backblazeb2.com
+        # Public base for reads. Set to a Cloudflare custom domain to get free egress.
+        "public_base": os.environ.get("B2_PUBLIC_BASE"),
+    }
+
+
+def b2_configured():
+    s = b2_settings()
+    return all([s["key_id"], s["app_key"], s["bucket"], s["endpoint"]])
+
+
+def b2_client():
+    import boto3
+
+    s = b2_settings()
+    return boto3.client(
+        "s3",
+        endpoint_url=s["endpoint"],
+        aws_access_key_id=s["key_id"],
+        aws_secret_access_key=s["app_key"],
+    )
+
+
+def public_url_for(key):
+    s = b2_settings()
+    if s["public_base"]:
+        return f"{s['public_base'].rstrip('/')}/{key}"
+    return f"{s['endpoint'].rstrip('/')}/{s['bucket']}/{key}"
+
+
+def store_image(raw_bytes, prefix="products"):
+    """Resizes to WebP and puts it in the bucket. Returns the public URL."""
+    from io import BytesIO
+    from PIL import Image
+
+    image = Image.open(BytesIO(raw_bytes))
+    if image.mode not in ("RGB", "RGBA"):
+        image = image.convert("RGB")
+    image.thumbnail((MAX_IMAGE_EDGE, MAX_IMAGE_EDGE), Image.LANCZOS)
+
+    buffer = BytesIO()
+    image.save(buffer, format="WEBP", quality=82, method=6)
+    buffer.seek(0)
+
+    key = f"{prefix}/{gen_id()}.webp"
+    b2_client().put_object(
+        Bucket=b2_settings()["bucket"],
+        Key=key,
+        Body=buffer.getvalue(),
+        ContentType="image/webp",
+        CacheControl="public, max-age=31536000, immutable",
+    )
+    return public_url_for(key)
+
+
+@app.get("/api/uploads/config")
+def upload_config():
+    return jsonify({"uploads_enabled": b2_configured()})
+
+
+@app.post("/api/uploads")
+def upload_image():
+    if not b2_configured():
+        return jsonify({"error": "Image storage is not configured. Set the B2_* environment variables."}), 503
+
+    uploaded = request.files.get("file")
+    if not uploaded:
+        return jsonify({"error": "No file was sent."}), 400
+
+    raw = uploaded.read()
+    if not raw:
+        return jsonify({"error": "The file was empty."}), 400
+    if len(raw) > MAX_UPLOAD_BYTES:
+        return jsonify({"error": "That image is larger than 10MB."}), 413
+
+    try:
+        url = store_image(raw)
+    except Exception as exc:  # noqa: BLE001 - surfaced to the admin UI
+        return jsonify({"error": f"Upload failed: {exc}"}), 502
+
+    return jsonify({"url": url}), 201
+
+
 # ── Delivery tracking ────────────────────────────────────────────────────────
 
 def phone_digits(value):
