@@ -4,6 +4,7 @@ import {
   CART_COOKIE,
   LAST_ORDER_COOKIE,
   PENDING_ORDER_COOKIE,
+  createDelivery,
   recordSale,
   verifyPaystack,
 } from "@/lib/checkout-server";
@@ -43,7 +44,7 @@ export async function GET(request: Request) {
   order.payment_reference = reference;
   order.payment_status = "PAID online";
 
-  const saved = await recordSale(order);
+  const [saved] = await Promise.all([recordSale(order), createDelivery(order)]);
 
   const response = done(
     saved.recorded

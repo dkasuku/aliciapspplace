@@ -167,7 +167,8 @@ export function SiteHeader({ siteContent }: { siteContent?: SiteContent }) {
                 )}
               </div>
             ))}
-            <Link href="/blog" className="ml-auto whitespace-nowrap px-3 py-3 text-[11px] font-bold uppercase tracking-wider text-[#c9f7d1] hover:text-white">Blog</Link>
+            <Link href="/track" className="ml-auto whitespace-nowrap px-3 py-3 text-[11px] font-bold uppercase tracking-wider text-[#c9f7d1] hover:text-white">Track order</Link>
+            <Link href="/blog" className="whitespace-nowrap px-3 py-3 text-[11px] font-bold uppercase tracking-wider text-[#c9f7d1] hover:text-white">Blog</Link>
             <a href="tel:+254724126009" className="whitespace-nowrap px-3 py-3 text-[11px] font-bold uppercase tracking-wider text-[#c9f7d1] hover:text-white">+254 724 126 009</a>
           </div>
         </nav>
@@ -209,6 +210,7 @@ export function SiteHeader({ siteContent }: { siteContent?: SiteContent }) {
                   )}
                 </div>
               ))}
+              <Link href="/track" onClick={closeMobile} className="block rounded-lg px-3 py-3 text-sm font-bold uppercase tracking-wider text-[#147243] hover:bg-[#f0fdf4]">Track order</Link>
               <Link href="/blog" onClick={closeMobile} className="block rounded-lg px-3 py-3 text-sm font-bold uppercase tracking-wider text-[#147243] hover:bg-[#f0fdf4]">Blog</Link>
               <a href="tel:+254724126009" onClick={closeMobile} className="block rounded-lg px-3 py-3 text-sm font-bold uppercase tracking-wider text-[#147243] hover:bg-[#f0fdf4]">+254 724 126 009</a>
             </div>

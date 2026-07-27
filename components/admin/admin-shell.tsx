@@ -48,6 +48,7 @@ const navItems: NavItem[] = [
     icon: Receipt,
     children: [
       { href: "/admin/orders", label: "Orders", icon: Receipt },
+      { href: "/admin/deliveries", label: "Deliveries", icon: Truck },
       { href: "/admin/pos", label: "POS / Sell", icon: ShoppingCart },
       { href: "/admin/sales", label: "Sales History", icon: ClipboardList },
       { href: "/admin/discounts", label: "Discounts", icon: Percent },
@@ -158,6 +159,7 @@ export function AdminShell({ children, stats }: { children: React.ReactNode; sta
     { href: "/admin/categories", label: "Categories", icon: Tag },
     { href: "/admin/inventory", label: "Inventory", icon: Boxes },
     { href: "/admin/orders", label: "Orders", icon: Receipt },
+    { href: "/admin/deliveries", label: "Deliveries", icon: Truck },
     { href: "/admin/pos", label: "POS / Sell", icon: ShoppingCart },
     { href: "/admin/sales", label: "Sales", icon: ClipboardList },
     { href: "/admin/discounts", label: "Discounts", icon: Percent },

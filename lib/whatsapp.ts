@@ -16,6 +16,11 @@ export interface OrderSummary {
   subtotal: number;
   delivery_fee: number;
   delivery_label: string;
+  delivery_km?: number;
+  map_link?: string;
+  fulfilment: "delivery" | "pickup";
+  drop_off?: { lat: number; lng: number };
+  tracking_url?: string;
   total: number;
   /** Short code stored on the sale record — the Sale.payment_method column is String(30). */
   payment_code: string;
@@ -65,6 +70,19 @@ export function buildOrderMessage(order: OrderSummary): string {
   if (order.address_line1) lines.push(`Address: ${order.address_line1}`);
   if (order.city) lines.push(`City / area: ${order.city}`);
   if (order.notes) lines.push(`Notes: ${order.notes}`);
+
+  if (order.map_link) {
+    lines.push(
+      "",
+      "*Drop-off pin*",
+      `${order.delivery_km?.toFixed(1)} km from Juja town`,
+      order.map_link,
+    );
+  }
+
+  if (order.tracking_url) {
+    lines.push("", "*Track this delivery*", order.tracking_url);
+  }
 
   return lines.join("\n");
 }

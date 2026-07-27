@@ -54,6 +54,16 @@ export function OrderConfirmation({
         Goes to {ORDER_WHATSAPP_DISPLAY}. Didn&apos;t open? Tap the button above.
       </p>
 
+      <Link
+        href={`/track?ref=${encodeURIComponent(order.reference)}`}
+        className="mt-6 inline-flex w-full items-center justify-center border border-[#166534]/40 px-7 py-4 text-xs font-bold uppercase tracking-wider text-[#166534] transition-colors hover:bg-[#166534]/5 sm:w-auto"
+      >
+        Track this delivery
+      </Link>
+      <p className="mt-2 text-xs text-[#0f172a]/50">
+        Save your order number — you&apos;ll need it plus your phone number to track.
+      </p>
+
       <div className="mt-10 border border-[#166534]/15 bg-white p-6 text-left text-sm">
         <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#166534]">Order summary</p>
         <ul className="mt-4 space-y-2">
@@ -71,10 +81,17 @@ export function OrderConfirmation({
             <span>Subtotal</span>
             <span>{money(order.subtotal)}</span>
           </div>
-          <div className="flex justify-between">
-            <span>Delivery · {order.delivery_label}</span>
-            <span>{order.delivery_fee > 0 ? money(order.delivery_fee) : "Free"}</span>
+          <div className="flex justify-between gap-3">
+            <span className="min-w-0 break-words">
+              {order.delivery_km != null ? `Delivery · ${order.delivery_km.toFixed(1)} km from Juja` : order.delivery_label}
+            </span>
+            <span className="shrink-0">{order.delivery_fee > 0 ? money(order.delivery_fee) : "Free"}</span>
           </div>
+          {order.map_link && (
+            <a href={order.map_link} target="_blank" rel="noopener noreferrer" className="block text-xs text-[#166534] underline">
+              View the drop-off pin on the map
+            </a>
+          )}
           <div className="flex justify-between pt-2 font-display text-xl font-black text-[#0f172a]">
             <span>Total</span>
             <span>{money(order.total)}</span>

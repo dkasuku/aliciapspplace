@@ -1,23 +1,27 @@
 "use server";
 
 import { cookies, headers } from "next/headers";
-import { deliveryFeeFor, findZone, DEFAULT_ZONE_ID } from "@/lib/delivery";
+import { mapsLink, quoteDelivery, type Fulfilment, type LatLng } from "@/lib/delivery";
 import {
   CART_COOKIE,
   PENDING_ORDER_COOKIE,
+  createDelivery,
   initializePaystack,
   isPaystackConfigured,
   parseCart,
   recordSale,
 } from "@/lib/checkout-server";
+import { trackingUrl } from "@/lib/tracking";
 import type { OrderSummary } from "@/lib/whatsapp";
 
 export interface CheckoutInput {
   full_name: string;
   email: string;
   phone_number: string;
-  payment_method: "delivery" | "online";
-  delivery_zone: string;
+  /** "later" sends the order straight to WhatsApp; "now" goes through Paystack first. */
+  payment_choice: "later" | "now";
+  fulfilment: Fulfilment;
+  drop_off?: LatLng | null;
   address_line1?: string;
   city?: string;
   notes?: string;
@@ -28,9 +32,17 @@ export type CheckoutResult =
   | { ok: true; redirectUrl: string }
   | { ok: false; error: string };
 
-const PAYMENT_METHODS: Record<CheckoutInput["payment_method"], { code: string; label: string }> = {
-  delivery: { code: "on_delivery", label: "Pay on delivery (Cash / M-Pesa)" },
-  online: { code: "paystack", label: "Paid online (card / M-Pesa via Paystack)" },
+const PAYMENT_METHODS: Record<CheckoutInput["payment_choice"], { code: string; label: string; status: string }> = {
+  later: {
+    code: "on_delivery",
+    label: "Pay on delivery (Cash / M-Pesa)",
+    status: "Not paid yet — collect on delivery",
+  },
+  now: {
+    code: "paystack",
+    label: "Paid online (card / M-Pesa via Paystack)",
+    status: "Paid online",
+  },
 };
 
 function reference(): string {
@@ -44,6 +56,16 @@ async function originUrl(): Promise<string> {
   const host = list.get("x-forwarded-host") || list.get("host") || "localhost:3000";
   const proto = list.get("x-forwarded-proto") || (host.startsWith("localhost") ? "http" : "https");
   return `${proto}://${host}`;
+}
+
+function validPoint(point: LatLng | null | undefined): point is LatLng {
+  return (
+    !!point &&
+    Number.isFinite(point.lat) &&
+    Number.isFinite(point.lng) &&
+    Math.abs(point.lat) <= 90 &&
+    Math.abs(point.lng) <= 180
+  );
 }
 
 /**
@@ -61,9 +83,12 @@ export async function completeCheckout(input: CheckoutInput): Promise<CheckoutRe
     return { ok: false, error: "Name, email and phone number are required." };
   }
 
-  const zone = findZone(input.delivery_zone) ?? findZone(DEFAULT_ZONE_ID)!;
-  if (zone.id !== "pickup" && !input.address_line1?.trim()) {
-    return { ok: false, error: "Please add a delivery address, or choose to pick up in store." };
+  const wantsDelivery = input.fulfilment !== "pickup";
+  if (wantsDelivery && !validPoint(input.drop_off)) {
+    return { ok: false, error: "Please mark your delivery spot on the map so we can work out the fee." };
+  }
+  if (wantsDelivery && !input.address_line1?.trim()) {
+    return { ok: false, error: "Please add a delivery address, or choose to collect from the shop." };
   }
 
   const jar = await cookies();
@@ -81,20 +106,31 @@ export async function completeCheckout(input: CheckoutInput): Promise<CheckoutRe
     };
   });
 
+  // The fee is derived from the coordinates here, so a tampered client cannot set its own price.
+  const dropOff = wantsDelivery && validPoint(input.drop_off) ? input.drop_off : null;
+  const quote = quoteDelivery(dropOff);
+
   const subtotal = items.reduce((sum, item) => sum + item.total, 0);
-  const delivery_fee = deliveryFeeFor(zone.id);
-  const total = subtotal + delivery_fee;
+  const total = subtotal + quote.fee;
+  const method = PAYMENT_METHODS[input.payment_choice] || PAYMENT_METHODS.later;
+  const orderRef = reference();
+  const origin = await originUrl();
 
   const order: OrderSummary = {
-    reference: reference(),
+    reference: orderRef,
     items,
     subtotal,
-    delivery_fee,
-    delivery_label: zone.label,
+    delivery_fee: quote.fee,
+    delivery_label: quote.label,
+    delivery_km: dropOff ? quote.km : undefined,
+    map_link: dropOff ? mapsLink(dropOff) : undefined,
+    fulfilment: wantsDelivery ? "delivery" : "pickup",
+    drop_off: dropOff ?? undefined,
+    tracking_url: trackingUrl(origin, orderRef),
     total,
-    payment_code: (PAYMENT_METHODS[input.payment_method] || PAYMENT_METHODS.delivery).code,
-    payment_label: (PAYMENT_METHODS[input.payment_method] || PAYMENT_METHODS.delivery).label,
-    payment_status: input.payment_method === "online" ? "Paid online" : "Not paid yet — collect on delivery",
+    payment_code: method.code,
+    payment_label: method.label,
+    payment_status: method.status,
     full_name,
     phone_number,
     email,
@@ -103,11 +139,11 @@ export async function completeCheckout(input: CheckoutInput): Promise<CheckoutRe
     notes: input.notes?.trim() || undefined,
   };
 
-  if (input.payment_method === "online") {
+  if (input.payment_choice === "now") {
     if (!isPaystackConfigured()) {
       return {
         ok: false,
-        error: "Online payment is not switched on yet. Please choose “Pay on delivery” — we will confirm on WhatsApp.",
+        error: "Paying online is not switched on yet. Use “Send order on WhatsApp” and pay on delivery instead.",
       };
     }
 
@@ -115,8 +151,8 @@ export async function completeCheckout(input: CheckoutInput): Promise<CheckoutRe
       email,
       amount: total,
       reference: order.reference,
-      callbackUrl: `${await originUrl()}/api/payments/callback`,
-      metadata: { customer: full_name, phone: phone_number, delivery: zone.label },
+      callbackUrl: `${origin}/api/payments/callback`,
+      metadata: { customer: full_name, phone: phone_number, delivery: quote.label },
     });
 
     if (!started.ok) return { ok: false, error: started.error };
@@ -133,8 +169,9 @@ export async function completeCheckout(input: CheckoutInput): Promise<CheckoutRe
     return { ok: true, redirectUrl: started.authorizationUrl };
   }
 
-  const saved = await recordSale(order);
-  if (saved.receipt_no) order.reference = saved.receipt_no;
+  // The sale is the shop's books; the delivery is what the customer tracks. The
+  // tracking reference stays ours so the shopper keeps the link they were given.
+  const [saved] = await Promise.all([recordSale(order), createDelivery(order)]);
 
   jar.delete(CART_COOKIE);
 

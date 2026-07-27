@@ -4,6 +4,7 @@ from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
 from datetime import datetime, timezone
 import uuid as uuid_lib
+import json
 import os
 
 load_dotenv()
@@ -157,6 +158,104 @@ class StockMovement(db.Model):
             "reason": self.reason,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
+
+
+# Ordered stages a delivery moves through. "cancelled" is terminal but off-track.
+DELIVERY_STAGES = ["received", "confirmed", "packed", "out_for_delivery", "delivered"]
+DELIVERY_STATUSES = DELIVERY_STAGES + ["cancelled"]
+
+
+class Delivery(db.Model):
+    id = db.Column(db.String(36), primary_key=True)
+    order_ref = db.Column(db.String(50), unique=True, nullable=False, index=True)
+    receipt_no = db.Column(db.String(50), nullable=True)
+    customer_name = db.Column(db.String(200), nullable=True)
+    customer_phone = db.Column(db.String(50), nullable=True, index=True)
+    customer_email = db.Column(db.String(200), nullable=True)
+    address = db.Column(db.String(500), nullable=True)
+    city = db.Column(db.String(120), nullable=True)
+    notes = db.Column(db.Text, nullable=True)
+    lat = db.Column(db.Float, nullable=True)
+    lng = db.Column(db.Float, nullable=True)
+    distance_km = db.Column(db.Float, nullable=True)
+    fulfilment = db.Column(db.String(20), default="delivery")  # delivery, pickup
+    delivery_fee = db.Column(db.Float, default=0)
+    subtotal = db.Column(db.Float, default=0)
+    total = db.Column(db.Float, default=0)
+    items_json = db.Column(db.Text, nullable=True)  # JSON array as string
+    payment_method = db.Column(db.String(30), nullable=True)
+    payment_status = db.Column(db.String(60), nullable=True)
+    status = db.Column(db.String(30), default="received", index=True)
+    rider_name = db.Column(db.String(120), nullable=True)
+    rider_phone = db.Column(db.String(50), nullable=True)
+    eta = db.Column(db.String(120), nullable=True)
+    events_json = db.Column(db.Text, nullable=True)  # JSON array of {status, note, at}
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(
+        db.DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+    def events(self):
+        try:
+            return json.loads(self.events_json) if self.events_json else []
+        except (ValueError, TypeError):
+            return []
+
+    def add_event(self, status, note=None):
+        history = self.events()
+        history.append(
+            {
+                "status": status,
+                "note": note,
+                "at": datetime.now(timezone.utc).isoformat(),
+            }
+        )
+        self.events_json = json.dumps(history)
+
+    def items(self):
+        try:
+            return json.loads(self.items_json) if self.items_json else []
+        except (ValueError, TypeError):
+            return []
+
+    def to_dict(self, public=False):
+        """`public` trims the payload down to what the shopper needs on /track."""
+        data = {
+            "order_ref": self.order_ref,
+            "status": self.status,
+            "fulfilment": self.fulfilment,
+            "customer_name": self.customer_name,
+            "address": self.address,
+            "city": self.city,
+            "distance_km": self.distance_km,
+            "delivery_fee": self.delivery_fee,
+            "subtotal": self.subtotal,
+            "total": self.total,
+            "items": self.items(),
+            "payment_method": self.payment_method,
+            "payment_status": self.payment_status,
+            "rider_name": self.rider_name,
+            "rider_phone": self.rider_phone,
+            "eta": self.eta,
+            "events": self.events(),
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+        if not public:
+            data.update(
+                {
+                    "id": self.id,
+                    "receipt_no": self.receipt_no,
+                    "customer_phone": self.customer_phone,
+                    "customer_email": self.customer_email,
+                    "notes": self.notes,
+                    "lat": self.lat,
+                    "lng": self.lng,
+                }
+            )
+        return data
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -450,6 +549,101 @@ def list_sales():
 def get_sale(sale_id):
     sale = Sale.query.get_or_404(sale_id)
     return jsonify(sale.to_dict())
+
+
+# ── Delivery tracking ────────────────────────────────────────────────────────
+
+def phone_digits(value):
+    """Last 9 digits, so 0724126009 / +254724126009 / 254724126009 all match."""
+    digits = "".join(ch for ch in str(value or "") if ch.isdigit())
+    return digits[-9:]
+
+
+@app.post("/api/deliveries")
+def create_delivery():
+    data = request.get_json(force=True) or {}
+    order_ref = (data.get("order_ref") or "").strip()
+    if not order_ref:
+        return jsonify({"error": "order_ref is required"}), 400
+
+    existing = Delivery.query.filter_by(order_ref=order_ref).first()
+    if existing:
+        return jsonify(existing.to_dict()), 200
+
+    delivery = Delivery(
+        id=gen_id(),
+        order_ref=order_ref,
+        receipt_no=data.get("receipt_no"),
+        customer_name=data.get("customer_name"),
+        customer_phone=data.get("customer_phone"),
+        customer_email=data.get("customer_email"),
+        address=data.get("address"),
+        city=data.get("city"),
+        notes=data.get("notes"),
+        lat=data.get("lat"),
+        lng=data.get("lng"),
+        distance_km=data.get("distance_km"),
+        fulfilment=data.get("fulfilment", "delivery"),
+        delivery_fee=float(data.get("delivery_fee", 0) or 0),
+        subtotal=float(data.get("subtotal", 0) or 0),
+        total=float(data.get("total", 0) or 0),
+        items_json=json.dumps(data.get("items", [])),
+        payment_method=data.get("payment_method"),
+        payment_status=data.get("payment_status"),
+        status="received",
+    )
+    delivery.add_event("received", "Order received on the website")
+    db.session.add(delivery)
+    db.session.commit()
+    return jsonify(delivery.to_dict()), 201
+
+
+@app.get("/api/deliveries/track")
+def track_delivery():
+    """Public lookup. The phone number acts as the shared secret for the ref."""
+    order_ref = (request.args.get("ref") or "").strip()
+    phone = (request.args.get("phone") or "").strip()
+    if not order_ref or not phone:
+        return jsonify({"error": "An order number and phone number are both required."}), 400
+
+    delivery = Delivery.query.filter(db.func.lower(Delivery.order_ref) == order_ref.lower()).first()
+    if not delivery or phone_digits(delivery.customer_phone) != phone_digits(phone):
+        return jsonify({"error": "No order matches that number and phone. Check both and try again."}), 404
+
+    return jsonify(delivery.to_dict(public=True))
+
+
+@app.get("/api/deliveries")
+def list_deliveries():
+    query = Delivery.query
+    status = request.args.get("status")
+    if status:
+        query = query.filter_by(status=status)
+    deliveries = query.order_by(Delivery.created_at.desc()).limit(200).all()
+    return jsonify([d.to_dict() for d in deliveries])
+
+
+@app.patch("/api/deliveries/<delivery_id>")
+def update_delivery(delivery_id):
+    delivery = Delivery.query.get_or_404(delivery_id)
+    data = request.get_json(force=True) or {}
+
+    status = data.get("status")
+    if status:
+        if status not in DELIVERY_STATUSES:
+            return jsonify({"error": f"Unknown status: {status}"}), 400
+        if status != delivery.status:
+            delivery.status = status
+            delivery.add_event(status, data.get("note"))
+        elif data.get("note"):
+            delivery.add_event(status, data.get("note"))
+
+    for field in ("rider_name", "rider_phone", "eta", "notes"):
+        if field in data:
+            setattr(delivery, field, data.get(field))
+
+    db.session.commit()
+    return jsonify(delivery.to_dict())
 
 
 # ── Dashboard / Stats ────────────────────────────────────────────────────────

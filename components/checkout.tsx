@@ -1,17 +1,21 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { completeCheckout } from "@/app/(storefront)/checkout/actions";
-import { DELIVERY_ZONES, DEFAULT_ZONE_ID, deliveryFeeFor, findZone } from "@/lib/delivery";
+import { BAND_FEE, BAND_KM, quoteDelivery, type Fulfilment, type LatLng } from "@/lib/delivery";
 import { ORDER_WHATSAPP_DISPLAY, type OrderSummary } from "@/lib/whatsapp";
 import { OrderConfirmation } from "./order-confirmation";
 import { useCart } from "./cart-provider";
 
+const DeliveryMap = dynamic(() => import("./delivery-map").then((mod) => mod.DeliveryMap), {
+  ssr: false,
+  loading: () => <div className="mt-3 h-72 w-full animate-pulse border border-[#166534]/25 bg-[#eef2ec] sm:h-80" />,
+});
+
 const num = (value: unknown) => Number(value || 0);
 const money = (value: number) => `KES ${num(value).toLocaleString()}`;
-
-type PaymentMethod = "delivery" | "online";
 
 export function Checkout() {
   const { cart, refresh } = useCart();
@@ -23,10 +27,10 @@ export function Checkout() {
     city: "",
     notes: "",
   });
-  const [zoneId, setZoneId] = useState(DEFAULT_ZONE_ID);
-  const [payment, setPayment] = useState<PaymentMethod>("delivery");
+  const [fulfilment, setFulfilment] = useState<Fulfilment>("delivery");
+  const [dropOff, setDropOff] = useState<LatLng | null>(null);
   const [onlineEnabled, setOnlineEnabled] = useState<boolean | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<"later" | "now" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [placed, setPlaced] = useState<{ order: OrderSummary; warning?: string } | null>(null);
 
@@ -45,20 +49,30 @@ export function Checkout() {
     };
   }, []);
 
-  const zone = findZone(zoneId) ?? findZone(DEFAULT_ZONE_ID)!;
+  const delivering = fulfilment === "delivery";
+  const quote = quoteDelivery(delivering ? dropOff : null);
   const subtotal = num(cart.subtotal || cart.total);
-  const deliveryFee = deliveryFeeFor(zoneId);
-  const total = subtotal + deliveryFee;
+  const total = subtotal + quote.fee;
+  const needsPin = delivering && !dropOff;
 
-  async function submit(event: React.FormEvent) {
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setBusy(true);
+    const submitter = (event.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
+    const choice: "later" | "now" = submitter?.value === "now" ? "now" : "later";
+
+    if (needsPin) {
+      setError("Mark your delivery spot on the map first — that is how we work out the fee.");
+      return;
+    }
+
+    setBusy(choice);
     setError(null);
     try {
       const result = await completeCheckout({
         ...contact,
-        payment_method: payment,
-        delivery_zone: zoneId,
+        payment_choice: choice,
+        fulfilment,
+        drop_off: delivering ? dropOff : null,
       });
 
       if (!result.ok) {
@@ -76,7 +90,7 @@ export function Checkout() {
     } catch {
       setError("The order could not be sent. Check your connection and try again.");
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   }
 
@@ -106,76 +120,49 @@ export function Checkout() {
             <Field label="Email address" type="email" required value={contact.email} onChange={(value) => setContact({ ...contact, email: value })} />
             <Field label="Phone number" type="tel" required placeholder="07xx xxx xxx" value={contact.phone_number} onChange={(value) => setContact({ ...contact, phone_number: value })} />
             <Field label="City / area" value={contact.city} onChange={(value) => setContact({ ...contact, city: value })} />
-            <Field label="Delivery address" required={zoneId !== "pickup"} value={contact.address_line1} onChange={(value) => setContact({ ...contact, address_line1: value })} />
+            <Field label="Delivery address" required={delivering} value={contact.address_line1} onChange={(value) => setContact({ ...contact, address_line1: value })} />
             <Field label="Notes for us (optional)" value={contact.notes} onChange={(value) => setContact({ ...contact, notes: value })} />
           </div>
         </fieldset>
 
         <fieldset className="mt-10 border-t border-[#166534]/20 pt-7">
-          <legend className="font-display text-2xl font-bold text-[#0f172a]">2. Delivery</legend>
-          <p className="mt-2 text-sm text-[#0f172a]/60">Delivery starts at KES 70 for 0 – 5 km. Pick the distance from Juja town.</p>
+          <legend className="font-display text-2xl font-bold text-[#0f172a]">2. How do you want it?</legend>
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            {DELIVERY_ZONES.map((option) => (
-              <label
-                key={option.id}
-                className={`flex cursor-pointer items-start justify-between gap-3 border p-4 transition-colors ${
-                  zoneId === option.id ? "border-[#166534] bg-white shadow-sm" : "border-[#166534]/20 hover:border-[#166534]/50"
+            <Choice
+              checked={delivering}
+              onSelect={() => setFulfilment("delivery")}
+              title="Deliver to me"
+              detail={`KES ${BAND_FEE} for the first ${BAND_KM} km, then KES ${BAND_FEE} per extra ${BAND_KM} km.`}
+            />
+            <Choice
+              checked={!delivering}
+              onSelect={() => setFulfilment("pickup")}
+              title="Collect from the shop"
+              detail="Juja Town — no delivery fee."
+            />
+          </div>
+
+          {delivering && (
+            <div className="mt-6">
+              <DeliveryMap value={dropOff} onChange={setDropOff} />
+              <div
+                className={`mt-3 border p-4 text-sm ${
+                  dropOff ? "border-[#166534]/30 bg-white" : "border-amber-500/60 bg-amber-50 text-amber-900"
                 }`}
               >
-                <span className="min-w-0">
-                  <input
-                    type="radio"
-                    name="delivery_zone"
-                    className="sr-only"
-                    checked={zoneId === option.id}
-                    onChange={() => setZoneId(option.id)}
-                  />
-                  <span className="block text-xs font-bold uppercase tracking-wider text-[#0f172a]">{option.label}</span>
-                  <span className="mt-1 block text-xs text-[#0f172a]/55">{option.hint}</span>
-                </span>
-                <b className="shrink-0 text-sm text-[#166534]">{option.fee > 0 ? money(option.fee) : "Free"}</b>
-              </label>
-            ))}
-          </div>
-        </fieldset>
-
-        <fieldset className="mt-10 border-t border-[#166534]/20 pt-7">
-          <legend className="font-display text-2xl font-bold text-[#0f172a]">3. Payment</legend>
-          <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            <label
-              className={`flex cursor-pointer flex-col gap-1 border p-4 transition-colors ${
-                payment === "delivery" ? "border-[#166534] bg-white shadow-sm" : "border-[#166534]/20 hover:border-[#166534]/50"
-              }`}
-            >
-              <input type="radio" name="payment" className="sr-only" checked={payment === "delivery"} onChange={() => setPayment("delivery")} />
-              <span className="text-xs font-bold uppercase tracking-wider text-[#0f172a]">Pay on delivery</span>
-              <span className="text-xs text-[#0f172a]/55">Cash or M-Pesa when the order reaches you.</span>
-            </label>
-            <label
-              className={`flex flex-col gap-1 border p-4 transition-colors ${
-                onlineEnabled === false
-                  ? "cursor-not-allowed border-[#166534]/15 opacity-55"
-                  : payment === "online"
-                    ? "cursor-pointer border-[#166534] bg-white shadow-sm"
-                    : "cursor-pointer border-[#166534]/20 hover:border-[#166534]/50"
-              }`}
-            >
-              <input
-                type="radio"
-                name="payment"
-                className="sr-only"
-                disabled={onlineEnabled === false}
-                checked={payment === "online"}
-                onChange={() => setPayment("online")}
-              />
-              <span className="text-xs font-bold uppercase tracking-wider text-[#0f172a]">Pay online now</span>
-              <span className="text-xs text-[#0f172a]/55">
-                {onlineEnabled === false
-                  ? "Not available yet — choose pay on delivery."
-                  : "Secure card or M-Pesa payment before delivery."}
-              </span>
-            </label>
-          </div>
+                {dropOff ? (
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-[#0f172a]/70">
+                      <b className="text-[#0f172a]">{quote.km.toFixed(1)} km</b> from Juja town · {quote.label}
+                    </span>
+                    <b className="text-[#166534]">{money(quote.fee)} delivery</b>
+                  </div>
+                ) : (
+                  "Drop a pin on the map to see your delivery fee."
+                )}
+              </div>
+            </div>
+          )}
         </fieldset>
       </div>
 
@@ -195,24 +182,76 @@ export function Checkout() {
             <span className="shrink-0">{money(subtotal)}</span>
           </div>
           <div className="flex justify-between gap-4 text-[#0f172a]/70">
-            <span className="min-w-0 break-words">Delivery · {zone.label}</span>
-            <span className="shrink-0">{deliveryFee > 0 ? money(deliveryFee) : "Free"}</span>
+            <span className="min-w-0 break-words">
+              {delivering ? (dropOff ? `Delivery · ${quote.km.toFixed(1)} km` : "Delivery") : "Collection · Juja Town"}
+            </span>
+            <span className="shrink-0">
+              {delivering ? (dropOff ? money(quote.fee) : "Pin your spot") : "Free"}
+            </span>
           </div>
           <div className="flex min-w-0 justify-between gap-4 border-t border-[#166534]/20 pt-5 font-display text-2xl font-black">
             <span>Total</span>
             <span className="shrink-0">{money(total)}</span>
           </div>
         </div>
-        <button disabled={busy || !cart.items?.length} className="mt-8 w-full bg-[#166534] px-5 py-5 text-xs font-black uppercase tracking-[0.18em] text-white hover:bg-[#14532d] transition-colors shadow-md disabled:opacity-40">
-          {busy ? "Please wait…" : payment === "online" ? `Pay ${money(total)} online` : "Place order"}
-        </button>
+
+        <div className="mt-8 space-y-3">
+          <button
+            type="submit"
+            name="choice"
+            value="later"
+            disabled={busy !== null || !cart.items?.length}
+            className="flex w-full items-center justify-center gap-2 bg-[#25D366] px-5 py-5 text-xs font-black uppercase tracking-[0.16em] text-white shadow-md transition-colors hover:bg-[#1da851] disabled:opacity-40"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden className="h-4 w-4 fill-current">
+              <path d="M17.47 14.38c-.3-.15-1.75-.86-2.02-.96-.27-.1-.47-.15-.67.15-.2.3-.77.96-.94 1.16-.17.2-.35.22-.64.07-.3-.15-1.25-.46-2.38-1.47-.88-.78-1.47-1.75-1.65-2.05-.17-.3-.02-.46.13-.6.13-.14.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.08-.15-.67-1.6-.92-2.2-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48s1.06 2.88 1.21 3.08c.15.2 2.1 3.2 5.08 4.49.71.3 1.26.49 1.69.63.71.22 1.36.19 1.87.12.57-.09 1.75-.72 2-1.41.25-.7.25-1.29.17-1.42-.07-.13-.27-.2-.57-.35M12.05 21.8h-.02a9.8 9.8 0 0 1-4.99-1.37l-.36-.21-3.71.97.99-3.62-.23-.37a9.8 9.8 0 0 1-1.5-5.23c0-5.4 4.4-9.8 9.82-9.8 2.62 0 5.08 1.03 6.94 2.88a9.74 9.74 0 0 1 2.87 6.93c0 5.4-4.4 9.8-9.81 9.8m8.35-18.15A11.7 11.7 0 0 0 12.05 0C5.6 0 .35 5.24.35 11.68c0 2.06.54 4.07 1.56 5.85L.25 24l6.62-1.73a11.68 11.68 0 0 0 5.18 1.24h.01c6.44 0 11.69-5.24 11.69-11.68a11.6 11.6 0 0 0-3.35-8.18" />
+            </svg>
+            {busy === "later" ? "Sending…" : "Send on WhatsApp · pay later"}
+          </button>
+
+          <button
+            type="submit"
+            name="choice"
+            value="now"
+            disabled={busy !== null || !cart.items?.length || onlineEnabled === false}
+            title={onlineEnabled === false ? "Online payment is not switched on yet." : undefined}
+            className="w-full bg-[#166534] px-5 py-5 text-xs font-black uppercase tracking-[0.16em] text-white shadow-md transition-colors hover:bg-[#14532d] disabled:opacity-40"
+          >
+            {busy === "now" ? "Opening payment…" : `Pay ${money(total)} now`}
+          </button>
+        </div>
+
         <p className="mt-4 text-center text-[11px] leading-relaxed text-[#0f172a]/50">
-          {payment === "online"
-            ? "You'll be taken to a secure payment page, then straight to WhatsApp to confirm."
-            : "Your order opens in WhatsApp so we can confirm it right away."}
+          {onlineEnabled === false
+            ? "Online payment is coming soon. Send your order on WhatsApp and pay on delivery."
+            : "Pay now with card or M-Pesa, or send the order first and pay when it arrives."}
         </p>
       </aside>
     </form>
+  );
+}
+
+function Choice({
+  checked,
+  onSelect,
+  title,
+  detail,
+}: {
+  checked: boolean;
+  onSelect: () => void;
+  title: string;
+  detail: string;
+}) {
+  return (
+    <label
+      className={`flex cursor-pointer flex-col gap-1 border p-4 transition-colors ${
+        checked ? "border-[#166534] bg-white shadow-sm" : "border-[#166534]/20 hover:border-[#166534]/50"
+      }`}
+    >
+      <input type="radio" name="fulfilment" className="sr-only" checked={checked} onChange={onSelect} />
+      <span className="text-xs font-bold uppercase tracking-wider text-[#0f172a]">{title}</span>
+      <span className="text-xs text-[#0f172a]/55">{detail}</span>
+    </label>
   );
 }
 

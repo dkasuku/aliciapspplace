@@ -57,6 +57,78 @@ export async function recordSale(
   }
 }
 
+/**
+ * Opens the trackable delivery record. Best effort for the same reason as
+ * recordSale — a shop system that is down must not block an order.
+ */
+export async function createDelivery(order: OrderSummary): Promise<{ tracked: boolean; reason?: string }> {
+  try {
+    const response = await fetch(`${API_URL}/api/deliveries`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        order_ref: order.reference,
+        customer_name: order.full_name,
+        customer_phone: order.phone_number,
+        customer_email: order.email,
+        address: order.address_line1,
+        city: order.city,
+        notes: order.notes,
+        lat: order.drop_off?.lat,
+        lng: order.drop_off?.lng,
+        distance_km: order.delivery_km,
+        fulfilment: order.fulfilment,
+        delivery_fee: order.delivery_fee,
+        subtotal: order.subtotal,
+        total: order.total,
+        items: order.items,
+        payment_method: order.payment_code,
+        payment_status: order.payment_status,
+      }),
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+      return { tracked: false, reason: payload?.error || `Backend responded with ${response.status}` };
+    }
+
+    return { tracked: true };
+  } catch (reason) {
+    return { tracked: false, reason: reason instanceof Error ? reason.message : "Backend unreachable" };
+  }
+}
+
+export async function trackDelivery(
+  ref: string,
+  phone: string,
+): Promise<{ ok: true; delivery: unknown } | { ok: false; error: string; status: number }> {
+  try {
+    const url = new URL(`${API_URL}/api/deliveries/track`);
+    url.searchParams.set("ref", ref);
+    url.searchParams.set("phone", phone);
+
+    const response = await fetch(url, { cache: "no-store" });
+    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        error: payload?.error || "We could not find that order.",
+      };
+    }
+
+    return { ok: true, delivery: payload };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      error: "Tracking is briefly unavailable. Please try again, or message us on WhatsApp.",
+    };
+  }
+}
+
 // ── Paystack ─────────────────────────────────────────────────────────────────
 
 const PAYSTACK_API = "https://api.paystack.co";
