@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" width="800" height="800" role="img" aria-label="iphone-12 rendering">
+  <defs>
+    <linearGradient id="back" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2D4F6C"/>
+      <stop offset="45%" stop-color="#2d4f6c"/>
+      <stop offset="100%" stop-color="#1e3447"/>
+    </linearGradient>
+    <linearGradient id="screen" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#20242B"/>
+      <stop offset="55%" stop-color="#11141A"/>
+      <stop offset="100%" stop-color="#080A0D"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.22"/>
+      <stop offset="40%" stop-color="#FFFFFF" stop-opacity="0.04"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="glassA" cx="0.35" cy="0.3" r="0.8">
+      <stop offset="0%" stop-color="#3C4A63"/>
+      <stop offset="55%" stop-color="#141821"/>
+      <stop offset="100%" stop-color="#05060A"/>
+    </radialGradient>
+    <radialGradient id="glassB" cx="0.35" cy="0.3" r="0.8">
+      <stop offset="0%" stop-color="#3C4A63"/>
+      <stop offset="55%" stop-color="#141821"/>
+      <stop offset="100%" stop-color="#05060A"/>
+    </radialGradient>
+    <radialGradient id="glassC" cx="0.35" cy="0.3" r="0.8">
+      <stop offset="0%" stop-color="#3C4A63"/>
+      <stop offset="55%" stop-color="#141821"/>
+      <stop offset="100%" stop-color="#05060A"/>
+    </radialGradient>
+    <radialGradient id="glassS0" cx="0.35" cy="0.3" r="0.8">
+      <stop offset="0%" stop-color="#3C4A63"/>
+      <stop offset="55%" stop-color="#141821"/>
+      <stop offset="100%" stop-color="#05060A"/>
+    </radialGradient>
+    <radialGradient id="glassS1" cx="0.35" cy="0.3" r="0.8">
+      <stop offset="0%" stop-color="#3C4A63"/>
+      <stop offset="55%" stop-color="#141821"/>
+      <stop offset="100%" stop-color="#05060A"/>
+    </radialGradient>
+    <radialGradient id="glassS2" cx="0.35" cy="0.3" r="0.8">
+      <stop offset="0%" stop-color="#3C4A63"/>
+      <stop offset="55%" stop-color="#141821"/>
+      <stop offset="100%" stop-color="#05060A"/>
+    </radialGradient>
+    <radialGradient id="glassS3" cx="0.35" cy="0.3" r="0.8">
+      <stop offset="0%" stop-color="#3C4A63"/>
+      <stop offset="55%" stop-color="#141821"/>
+      <stop offset="100%" stop-color="#05060A"/>
+    </radialGradient>
+    <filter id="drop" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="16" stdDeviation="22" flood-color="#0F172A" flood-opacity="0.20"/>
+    </filter>
+  </defs>
+
+  <!-- Back view, angled behind -->
+  <g transform="translate(66 118) rotate(-8 140 280)" filter="url(#drop)">
+    <rect x="0" y="0" width="280" height="560" rx="46" fill="url(#back)" stroke="#172836" stroke-width="3"/>
+    <rect x="10" y="10" width="260" height="540" rx="38" fill="none" stroke="#FFFFFF" stroke-opacity="0.14" stroke-width="2"/>
+    <g transform="translate(0 0) scale(0.78)">
+      <rect x="96" y="118" width="150" height="150" rx="46" fill="#254159" stroke="#1d3345" stroke-width="2"/>
+      
+      <circle cx="144" cy="166" r="34" fill="#15161A"/>
+      <circle cx="144" cy="166" r="24.48" fill="url(#glassA)"/>
+      <circle cx="144" cy="166" r="11.56" fill="#0B0C0F"/>
+      <circle cx="135.16" cy="156.48" r="5.44" fill="#FFFFFF" opacity="0.55"/>
+      <circle cx="198" cy="220" r="34" fill="#15161A"/>
+      <circle cx="198" cy="220" r="24.48" fill="url(#glassB)"/>
+      <circle cx="198" cy="220" r="11.56" fill="#0B0C0F"/>
+      <circle cx="189.16" cy="210.48" r="5.44" fill="#FFFFFF" opacity="0.55"/>
+      <circle cx="198" cy="166" r="14" fill="#F4E6C8"/>
+      <circle cx="198" cy="166" r="7" fill="#FFF8E6"/></g>
+    <rect x="0" y="0" width="280" height="560" rx="46" fill="url(#sheen)"/>
+  </g>
+
+  <!-- Front view -->
+  <g transform="translate(392 96) rotate(5 154 304)" filter="url(#drop)">
+    <rect x="0" y="0" width="308" height="608" rx="50" fill="url(#back)" stroke="#172836" stroke-width="3"/>
+    <rect x="13" y="13" width="282" height="582" rx="40" fill="url(#screen)"/>
+    <path d="M80 13 h148 v20 a24 24 0 0 1 -24 24 h-100 a24 24 0 0 1 -24 -24 z" fill="#0A0B0E"/>
+    <rect x="134" y="28" width="40" height="5" rx="2.5" fill="#1B2029"/>
+    <rect x="13" y="13" width="282" height="582" rx="40" fill="url(#sheen)"/>
+    <rect x="120" y="566" width="68" height="6" rx="3" fill="#FFFFFF" opacity="0.5"/>
+  </g>
+</svg>

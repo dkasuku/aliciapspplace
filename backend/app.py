@@ -13,6 +13,13 @@ app = Flask(__name__)
 CORS(app)
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "postgresql://localhost:5432/alicia_phone_place")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+# Managed Postgres drops idle connections, which otherwise surface as a 500 on
+# the first request after a quiet spell. Test the connection before handing it
+# out, and retire it well before the provider does.
+app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+    "pool_pre_ping": True,
+    "pool_recycle": 280,
+}
 db = SQLAlchemy(app)
 
 
