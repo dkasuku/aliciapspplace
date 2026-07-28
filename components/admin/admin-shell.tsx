@@ -201,14 +201,16 @@ export function AdminShell({ children, stats }: { children: React.ReactNode; sta
         )}
       </aside>
 
-      <div className="flex flex-1 flex-col">
+      {/* min-w-0: without it this flex child inherits min-width:auto and grows to
+          fit the widest table, pushing the whole admin sideways on a phone. */}
+      <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-16 items-center justify-between border-b border-[#166534]/15 bg-white px-4 sm:px-6">
-          <div className="flex items-center gap-3 md:hidden">
+          <div className="flex min-w-0 items-center gap-3 md:hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/Phoneplacelg.png" alt="Alicia Phone Store" className="h-14 w-auto max-w-[200px] object-contain" />
+            <img src="/Phoneplacelg.png" alt="Alicia Phone Store" className="h-10 w-auto max-w-[140px] object-contain sm:h-14 sm:max-w-[200px]" />
           </div>
           <h1 className="hidden text-lg font-bold text-[#0f172a] md:block">Admin Panel</h1>
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             <Link href="/" className="text-sm font-medium text-[#166534] hover:underline">
               <span className="hidden sm:inline">View store →</span>
               <span className="sm:hidden">Store →</span>
@@ -239,7 +241,7 @@ export function AdminShell({ children, stats }: { children: React.ReactNode; sta
           })}
         </nav>
 
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6">{children}</main>
+        <main className="min-w-0 flex-1 overflow-y-auto p-4 sm:p-6">{children}</main>
       </div>
     </div>
   );

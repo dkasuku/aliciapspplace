@@ -267,7 +267,7 @@ export function ProductsManager({
           />
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex flex-wrap items-center gap-1">
           <span className="mr-1 text-xs font-medium text-[#64748b]">Type</span>
           {([
             { id: "all", label: "All" },
@@ -285,7 +285,7 @@ export function ProductsManager({
           ))}
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex flex-wrap items-center gap-1">
           <span className="mr-1 text-xs font-medium text-[#64748b]">Shown in</span>
           {([
             { id: "all", label: "Any" },
