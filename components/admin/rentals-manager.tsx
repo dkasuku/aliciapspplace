@@ -360,7 +360,7 @@ export function RentalsManager({ initialRentals, products }: { initialRentals: R
                 <TableRow>
                   <TableCell colSpan={10} className="text-center text-[#64748b] py-12">
                     <Smartphone className="mx-auto mb-2 h-8 w-8 text-[#cbd5e1]" />
-                    No rental records yet. Click "New rental" to create one.
+                    No rental records yet. Click &ldquo;New rental&rdquo; to create one.
                   </TableCell>
                 </TableRow>
               )}

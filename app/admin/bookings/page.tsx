@@ -5,7 +5,7 @@ import type { Booking } from "@/lib/topduka/types";
 export const dynamic = "force-dynamic";
 
 export default async function AdminBookingsPage() {
-  let bookings: Booking[] = [];
+  const bookings: Booking[] = [];
   try {
     const allProducts = await products.list({ limit: 1 });
     void allProducts;

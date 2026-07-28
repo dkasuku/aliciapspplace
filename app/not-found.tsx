@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function NotFound() {
   return (
     <main className="grid min-h-screen place-items-center bg-[#f7f8f5] px-5 text-[#17251f]">
@@ -14,9 +16,9 @@ export default function NotFound() {
         <p className="mx-auto mt-4 max-w-sm text-sm leading-6 text-[#5c7564]">
           The page you are looking for does not exist or may have been moved.
         </p>
-        <a href="/" className="mt-8 inline-block rounded-xl bg-[#147243] px-8 py-4 text-xs font-black uppercase tracking-[0.18em] text-white shadow-md transition-colors hover:bg-[#0d5933]">
+        <Link href="/" className="mt-8 inline-block rounded-xl bg-[#147243] px-8 py-4 text-xs font-black uppercase tracking-[0.18em] text-white shadow-md transition-colors hover:bg-[#0d5933]">
           Back to home
-        </a>
+        </Link>
       </div>
     </main>
   );

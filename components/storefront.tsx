@@ -128,7 +128,7 @@ function PhoneSections({ products, currency, loading, onAdd }: { products: Produ
           <div className="mt-3 grid gap-4 sm:grid-cols-3">
             <div className="flex items-start gap-2">
               <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#fbbf24] text-xs font-black text-[#78350f]">1</span>
-              <p className="text-xs leading-5 text-[#78350f]">Browse rental phones and click "Apply for Lipa Pole Pole" on the product page.</p>
+              <p className="text-xs leading-5 text-[#78350f]">Browse rental phones and click &ldquo;Apply for Lipa Pole Pole&rdquo; on the product page.</p>
             </div>
             <div className="flex items-start gap-2">
               <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#fbbf24] text-xs font-black text-[#78350f]">2</span>
