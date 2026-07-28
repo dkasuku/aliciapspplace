@@ -30,6 +30,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { Category, Product } from "@/lib/api/types";
+import { Pagination, usePagination } from "./pagination";
 
 const money = (v: number) => `KES ${Number(v || 0).toLocaleString()}`;
 
@@ -48,10 +49,28 @@ export function ProductsManager({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
 
-  const filtered = products.filter((p) =>
-    p.name.toLowerCase().includes(search.toLowerCase()) ||
-    p.sku?.toLowerCase().includes(search.toLowerCase())
-  );
+  const [typeFilter, setTypeFilter] = useState<"all" | "sale" | "rental">("all");
+  const [channelFilter, setChannelFilter] = useState<"all" | "site" | "pos" | "hidden">("all");
+
+  const filtered = products.filter((p) => {
+    const term = search.toLowerCase();
+    const matchesTerm =
+      !term || p.name.toLowerCase().includes(term) || (p.sku?.toLowerCase().includes(term) ?? false);
+    if (!matchesTerm) return false;
+
+    const type = p.product_type || "sale";
+    if (typeFilter !== "all" && type !== typeFilter) return false;
+
+    const onSite = p.visible_on_site !== false;
+    const inPos = p.visible_in_pos !== false;
+    if (channelFilter === "site" && !onSite) return false;
+    if (channelFilter === "pos" && !inPos) return false;
+    if (channelFilter === "hidden" && (onSite || inPos)) return false;
+
+    return true;
+  });
+
+  const paging = usePagination(filtered, 25);
 
   const emptyForm = {
     name: "",
@@ -66,6 +85,8 @@ export function ProductsManager({
     images: [] as string[],
     product_type: "sale",
     rental_terms: "",
+    visible_on_site: true,
+    visible_in_pos: true,
   };
 
   const [form, setForm] = useState(emptyForm);
@@ -94,6 +115,8 @@ export function ProductsManager({
       images: product.images || [],
       product_type: product.product_type || "sale",
       rental_terms: product.rental_terms || "",
+      visible_on_site: product.visible_on_site !== false,
+      visible_in_pos: product.visible_in_pos !== false,
     });
     setDialogOpen(true);
   }
@@ -112,6 +135,8 @@ export function ProductsManager({
       images: form.images,
       product_type: form.product_type,
       rental_terms: form.product_type === "rental" ? form.rental_terms : undefined,
+      visible_on_site: form.visible_on_site,
+      visible_in_pos: form.visible_in_pos,
     };
 
     setSaveError(null);
@@ -231,14 +256,53 @@ export function ProductsManager({
         </Button>
       </div>
 
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94a3b8]" />
-        <Input
-          placeholder="Search by name or SKU..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-10"
-        />
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative min-w-56 max-w-sm flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94a3b8]" />
+          <Input
+            placeholder="Search by name or SKU..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+
+        <div className="flex items-center gap-1">
+          <span className="mr-1 text-xs font-medium text-[#64748b]">Type</span>
+          {([
+            { id: "all", label: "All" },
+            { id: "sale", label: "Cash" },
+            { id: "rental", label: "Lipa Pole Pole" },
+          ] as const).map((option) => (
+            <Button
+              key={option.id}
+              size="sm"
+              variant={typeFilter === option.id ? "default" : "outline"}
+              onClick={() => setTypeFilter(option.id)}
+            >
+              {option.label}
+            </Button>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-1">
+          <span className="mr-1 text-xs font-medium text-[#64748b]">Shown in</span>
+          {([
+            { id: "all", label: "Any" },
+            { id: "site", label: "Website" },
+            { id: "pos", label: "POS" },
+            { id: "hidden", label: "Hidden" },
+          ] as const).map((option) => (
+            <Button
+              key={option.id}
+              size="sm"
+              variant={channelFilter === option.id ? "default" : "outline"}
+              onClick={() => setChannelFilter(option.id)}
+            >
+              {option.label}
+            </Button>
+          ))}
+        </div>
       </div>
 
       <Card>
@@ -253,12 +317,13 @@ export function ProductsManager({
                 <TableHead>Stock</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Shown in</TableHead>
                 <TableHead>Categories</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((p) => (
+              {paging.visible.map((p) => (
                 <TableRow key={p.id}>
                   <TableCell className="font-medium">{p.name}</TableCell>
                   <TableCell className="text-[#64748b]">{p.sku || "—"}</TableCell>
@@ -279,6 +344,19 @@ export function ProductsManager({
                       {p.status}
                     </Badge>
                   </TableCell>
+                  <TableCell>
+                    <span className="flex flex-wrap gap-1">
+                      {p.visible_on_site !== false && (
+                        <Badge variant="secondary" className="text-[10px]">Website</Badge>
+                      )}
+                      {p.visible_in_pos !== false && (
+                        <Badge variant="secondary" className="text-[10px]">POS</Badge>
+                      )}
+                      {p.visible_on_site === false && p.visible_in_pos === false && (
+                        <Badge variant="outline" className="text-[10px] text-[#94a3b8]">Hidden</Badge>
+                      )}
+                    </span>
+                  </TableCell>
                   <TableCell className="text-xs text-[#64748b]">
                     {p.categories?.join(", ") || "—"}
                   </TableCell>
@@ -294,13 +372,14 @@ export function ProductsManager({
               ))}
               {filtered.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center text-[#64748b]">
+                  <TableCell colSpan={10} className="text-center text-[#64748b]">
                     No products found.
                   </TableCell>
                 </TableRow>
               )}
             </TableBody>
           </Table>
+          <Pagination state={paging} label="products" />
         </CardContent>
       </Card>
 
@@ -392,8 +471,38 @@ export function ProductsManager({
                 <div className="grid gap-2">
                   <Label htmlFor="rental_terms">Rental terms</Label>
                   <Input id="rental_terms" value={form.rental_terms} onChange={(e) => setForm({ ...form, rental_terms: e.target.value })} placeholder="e.g. KES 500/day for 365 days" />
+                  <p className="text-xs text-[#94a3b8]">Shown on the product page under the Lipa Pole Pole badge.</p>
                 </div>
               )}
+            </div>
+
+            <div className="grid gap-2">
+              <Label>Where this product appears</Label>
+              <div className="flex flex-wrap gap-4 rounded-lg border border-[#166534]/20 p-4">
+                <label className="flex items-center gap-2 text-sm text-[#334155]">
+                  <input
+                    type="checkbox"
+                    checked={form.visible_on_site}
+                    onChange={(e) => setForm({ ...form, visible_on_site: e.target.checked })}
+                    className="h-4 w-4 accent-[#166534]"
+                  />
+                  Website
+                </label>
+                <label className="flex items-center gap-2 text-sm text-[#334155]">
+                  <input
+                    type="checkbox"
+                    checked={form.visible_in_pos}
+                    onChange={(e) => setForm({ ...form, visible_in_pos: e.target.checked })}
+                    className="h-4 w-4 accent-[#166534]"
+                  />
+                  POS / in-shop till
+                </label>
+              </div>
+              <p className="text-xs text-[#94a3b8]">
+                {!form.visible_on_site && !form.visible_in_pos
+                  ? "Hidden everywhere — the product stays in your records but customers and the till will not see it."
+                  : "Untick a channel to hide this product there without deleting it."}
+              </p>
             </div>
             <div className="grid gap-2">
               <Label>Product images</Label>

@@ -72,51 +72,60 @@ export function BannersManager() {
     }
   }
 
-  function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 2 * 1024 * 1024) {
-      alert("Logo too large. Max 2MB.");
-      return;
+  /**
+   * Uploads through object storage and returns a URL. Falls back to an inline
+   * data URI only when storage is unconfigured — base64 here rides along with
+   * every page load of the site content.
+   */
+  async function uploadImage(file: File): Promise<string | null> {
+    if (file.size > 10 * 1024 * 1024) {
+      alert(`${file.name} is too large. Max 10MB.`);
+      return null;
     }
-    const reader = new FileReader();
-    reader.onload = () => {
-      update("logoUrl", reader.result as string);
-    };
-    reader.readAsDataURL(file);
+    const body = new FormData();
+    body.append("file", file);
+    try {
+      const response = await fetch("/api/admin/upload", { method: "POST", body });
+      const payload = (await response.json().catch(() => null)) as { url?: string; error?: string } | null;
+      if (response.ok && payload?.url) return payload.url;
+      if (response.status === 503 && file.size <= 2 * 1024 * 1024) {
+        return await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.readAsDataURL(file);
+        });
+      }
+      alert(payload?.error || "The image could not be uploaded.");
+    } catch {
+      alert("The image could not be uploaded.");
+    }
+    return null;
+  }
+
+  async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
     if (logoInputRef.current) logoInputRef.current.value = "";
+    if (!file) return;
+    const url = await uploadImage(file);
+    if (url) update("logoUrl", url);
   }
 
-  function handleHeroImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleHeroImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file || !content) return;
-    if (file.size > 3 * 1024 * 1024) {
-      alert("Image too large. Max 3MB.");
-      return;
-    }
-    const currentHero = content.heroSection;
-    const reader = new FileReader();
-    reader.onload = () => {
-      update("heroSection", { ...currentHero, imageUrl: reader.result as string });
-    };
-    reader.readAsDataURL(file);
     if (heroInputRef.current) heroInputRef.current.value = "";
+    if (!file || !content) return;
+    const currentHero = content.heroSection;
+    const url = await uploadImage(file);
+    if (url) update("heroSection", { ...currentHero, imageUrl: url });
   }
 
-  function handlePromoImageUpload(e: React.ChangeEvent<HTMLInputElement>, index: number) {
+  async function handlePromoImageUpload(e: React.ChangeEvent<HTMLInputElement>, index: number) {
     const file = e.target.files?.[0];
-    if (!file || !content) return;
-    if (file.size > 3 * 1024 * 1024) {
-      alert("Image too large. Max 3MB.");
-      return;
-    }
-    const currentPromos = content.promoCards;
-    const reader = new FileReader();
-    reader.onload = () => {
-      update("promoCards", currentPromos.map((p, i) => i === index ? { ...p, imageUrl: reader.result as string } : p));
-    };
-    reader.readAsDataURL(file);
     e.target.value = "";
+    if (!file || !content) return;
+    const currentPromos = content.promoCards;
+    const url = await uploadImage(file);
+    if (url) update("promoCards", currentPromos.map((p, i) => (i === index ? { ...p, imageUrl: url } : p)));
   }
 
   return (

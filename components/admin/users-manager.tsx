@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { User, Plus, Trash2, Mail, Shield } from "lucide-react";
 import { useState } from "react";
+import { Pagination, usePagination } from "./pagination";
 
 type UserAccount = {
   id: string;
@@ -57,6 +58,8 @@ export function UsersManager({ initialUsers }: { initialUsers: UserAccount[] }) 
     if (role === "viewer") return "secondary";
     return "warning";
   };
+
+  const paging = usePagination(users, 25);
 
   return (
     <div className="space-y-6">
@@ -108,8 +111,9 @@ export function UsersManager({ initialUsers }: { initialUsers: UserAccount[] }) 
           </CardContent>
         </Card>
       ) : (
+        <>
         <div className="space-y-3">
-          {users.map((user) => (
+          {paging.visible.map((user) => (
             <Card key={user.id}>
               <CardContent className="flex items-center justify-between p-4">
                 <div className="flex items-center gap-4">
@@ -143,6 +147,10 @@ export function UsersManager({ initialUsers }: { initialUsers: UserAccount[] }) 
             </Card>
           ))}
         </div>
+          <div className="rounded-xl border border-[#166534]/15 bg-white">
+            <Pagination state={paging} label="users" />
+          </div>
+        </>
       )}
     </div>
   );

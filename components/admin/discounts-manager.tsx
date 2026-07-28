@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Tag, Plus, Trash2, Percent } from "lucide-react";
 import { useState } from "react";
 import type { Discount } from "@/lib/catalog";
+import { Pagination, usePagination } from "./pagination";
 
 export function DiscountsManager({ initialDiscounts }: { initialDiscounts: Discount[] }) {
   const [discounts, setDiscounts] = useState<Discount[]>(initialDiscounts);
@@ -43,6 +44,8 @@ export function DiscountsManager({ initialDiscounts }: { initialDiscounts: Disco
   const toggleActive = (id: string) => {
     setDiscounts(discounts.map((d) => (d.id === id ? { ...d, active: !d.active } : d)));
   };
+
+  const paging = usePagination(discounts, 25);
 
   return (
     <div className="space-y-6">
@@ -97,8 +100,9 @@ export function DiscountsManager({ initialDiscounts }: { initialDiscounts: Disco
           </CardContent>
         </Card>
       ) : (
+        <>
         <div className="space-y-3">
-          {discounts.map((discount) => (
+          {paging.visible.map((discount) => (
             <Card key={discount.id}>
               <CardContent className="flex items-center justify-between p-4">
                 <div className="flex items-center gap-4">
@@ -125,6 +129,10 @@ export function DiscountsManager({ initialDiscounts }: { initialDiscounts: Disco
             </Card>
           ))}
         </div>
+          <div className="rounded-xl border border-[#166534]/15 bg-white">
+            <Pagination state={paging} label="discounts" />
+          </div>
+        </>
       )}
     </div>
   );

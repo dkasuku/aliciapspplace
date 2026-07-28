@@ -56,11 +56,14 @@ export const api = {
 
   // Products
   products: {
-    list: (params?: { status?: string; search?: string; category?: string }) => {
+    list: (params?: { status?: string; search?: string; category?: string; channel?: "site" | "pos"; product_type?: string }) => {
       const query = new URLSearchParams();
       if (params?.status) query.set("status", params.status);
       if (params?.search) query.set("search", params.search);
       if (params?.category) query.set("category", params.category);
+      // Omit channel in admin so hidden products stay manageable.
+      if (params?.channel) query.set("channel", params.channel);
+      if (params?.product_type) query.set("product_type", params.product_type);
       const qs = query.toString();
       return request<Product[]>(`/products${qs ? `?${qs}` : ""}`);
     },

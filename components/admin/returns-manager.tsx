@@ -29,8 +29,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { Product } from "@/lib/api/types";
+import { Pagination, usePagination } from "./pagination";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+// Same-origin admin proxy — see app/api/admin/backend/[...path]/route.ts
+const API_URL = "/api/admin/backend";
 const money = (v: number) => `KES ${Number(v || 0).toLocaleString()}`;
 
 export interface ReturnRecord {
@@ -176,6 +178,8 @@ export function ReturnsManager({ initialReturns, products }: { initialReturns: R
   const totalRefunds = returns.filter((r) => r.status === "refunded").reduce((sum, r) => sum + r.refund_amount, 0);
   const pendingCount = returns.filter((r) => r.status === "pending").length;
 
+  const paging = usePagination(filtered, 25);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -214,7 +218,7 @@ export function ReturnsManager({ initialReturns, products }: { initialReturns: R
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((r) => (
+              {paging.visible.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell className="font-medium">{r.product_name}</TableCell>
                   <TableCell>{r.quantity}</TableCell>
@@ -255,6 +259,7 @@ export function ReturnsManager({ initialReturns, products }: { initialReturns: R
               )}
             </TableBody>
           </Table>
+          <Pagination state={paging} label="returns" />
         </CardContent>
       </Card>
 

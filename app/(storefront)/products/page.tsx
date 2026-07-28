@@ -13,7 +13,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
   try {
     const [storeResult, productsResult, categoriesResult] = await Promise.allSettled([
       api.storeInfo(),
-      api.products.list({ status: "active" }),
+      api.products.list({ status: "active", channel: "site" }),
       api.categories.list(),
     ]);
     if (storeResult.status === "fulfilled") storeInfo = storeResult.value;

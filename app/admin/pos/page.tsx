@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export default async function AdminPOSPage() {
   let products: Product[] = [];
   try {
-    products = await api.products.list({ status: "active" });
+    products = await api.products.list({ status: "active", channel: "pos" });
   } catch {}
   if (!products.length) products = fallbackProducts;
   return <POS initialProducts={products} />;

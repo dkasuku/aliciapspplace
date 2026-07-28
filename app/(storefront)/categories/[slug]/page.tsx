@@ -17,7 +17,7 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
   let catalog: Product[] = [];
   let categories: Category[] = [];
   try {
-    const [storeResult, productsResult, categoriesResult] = await Promise.allSettled([api.storeInfo(), api.products.list({ status: "active" }), api.categories.list()]);
+    const [storeResult, productsResult, categoriesResult] = await Promise.allSettled([api.storeInfo(), api.products.list({ status: "active", channel: "site" }), api.categories.list()]);
     if (storeResult.status === "fulfilled") storeInfo = storeResult.value;
     if (productsResult.status === "fulfilled") catalog = productsResult.value;
     if (categoriesResult.status === "fulfilled") categories = categoriesResult.value;

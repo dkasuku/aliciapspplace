@@ -17,11 +17,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { Sale } from "@/lib/api/types";
+import { Pagination, usePagination } from "./pagination";
 
 const money = (v: number) => `KES ${Number(v || 0).toLocaleString()}`;
 
 export function SalesHistory({ initialSales }: { initialSales: Sale[] }) {
   const [expanded, setExpanded] = useState<string | null>(null);
+
+  const paging = usePagination(initialSales, 25);
 
   return (
     <div className="space-y-6">
@@ -45,7 +48,7 @@ export function SalesHistory({ initialSales }: { initialSales: Sale[] }) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {initialSales.map((sale) => (
+              {paging.visible.map((sale) => (
                 <Fragment key={sale.id}>
                   <TableRow>
                     <TableCell className="font-mono text-xs font-bold">{sale.receipt_no}</TableCell>
@@ -110,6 +113,7 @@ export function SalesHistory({ initialSales }: { initialSales: Sale[] }) {
               )}
             </TableBody>
           </Table>
+          <Pagination state={paging} label="sales" />
         </CardContent>
       </Card>
     </div>

@@ -28,11 +28,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { InventoryItem, StockMovement } from "@/lib/api/types";
+import { Pagination, usePagination } from "./pagination";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+// Same-origin admin proxy — see app/api/admin/backend/[...path]/route.ts
+const API_URL = "/api/admin/backend";
 
 export function InventoryManager({ initialItems }: { initialItems: InventoryItem[] }) {
   const [items, setItems] = useState(initialItems);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [restockItem, setRestockItem] = useState<InventoryItem | null>(null);
   const [adjustItem, setAdjustItem] = useState<InventoryItem | null>(null);
@@ -85,12 +88,17 @@ export function InventoryManager({ initialItems }: { initialItems: InventoryItem
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ quantity: qty, reason: restockReason || "Manual restock" }),
         });
-        if (res.ok) {
-          const updated = await res.json();
-          setItems((prev) => prev.map((i) => (i.id === updated.id ? { ...i, stock: updated.stock, is_low: updated.stock <= i.low_stock_threshold } : i)));
-          setRestockItem(null);
+        if (!res.ok) {
+          const data = (await res.json().catch(() => null)) as { error?: string } | null;
+          throw new Error(data?.error || `Restock failed (HTTP ${res.status}).`);
         }
-      } catch {}
+        const updated = await res.json();
+        setItems((prev) => prev.map((i) => (i.id === updated.id ? { ...i, stock: updated.stock, is_low: updated.stock <= i.low_stock_threshold } : i)));
+        setRestockItem(null);
+        setActionError(null);
+      } catch (reason) {
+        setActionError(reason instanceof Error ? reason.message : "Restock failed.");
+      }
     });
   }
 
@@ -104,14 +112,21 @@ export function InventoryManager({ initialItems }: { initialItems: InventoryItem
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ stock: newStock, reason: adjustReason || "Stock adjustment" }),
         });
-        if (res.ok) {
-          const updated = await res.json();
-          setItems((prev) => prev.map((i) => (i.id === updated.id ? { ...i, stock: updated.stock, is_low: updated.stock <= i.low_stock_threshold } : i)));
-          setAdjustItem(null);
+        if (!res.ok) {
+          const data = (await res.json().catch(() => null)) as { error?: string } | null;
+          throw new Error(data?.error || `Adjustment failed (HTTP ${res.status}).`);
         }
-      } catch {}
+        const updated = await res.json();
+        setItems((prev) => prev.map((i) => (i.id === updated.id ? { ...i, stock: updated.stock, is_low: updated.stock <= i.low_stock_threshold } : i)));
+        setAdjustItem(null);
+        setActionError(null);
+      } catch (reason) {
+        setActionError(reason instanceof Error ? reason.message : "Adjustment failed.");
+      }
     });
   }
+
+  const paging = usePagination(filtered, 25);
 
   return (
     <div className="space-y-6">
@@ -121,6 +136,10 @@ export function InventoryManager({ initialItems }: { initialItems: InventoryItem
           {items.length} items · {lowStock.length} low stock alerts
         </p>
       </div>
+
+      {actionError && (
+        <p className="border border-red-300 bg-red-50 p-4 text-sm text-red-800">{actionError}</p>
+      )}
 
       {lowStock.length > 0 && (
         <Card className="border-amber-200 bg-amber-50">
@@ -157,7 +176,7 @@ export function InventoryManager({ initialItems }: { initialItems: InventoryItem
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((item) => (
+              {paging.visible.map((item) => (
                 <TableRow key={item.id}>
                   <TableCell className="font-medium">{item.name}</TableCell>
                   <TableCell className="text-[#64748b]">{item.sku || "—"}</TableCell>
@@ -194,6 +213,7 @@ export function InventoryManager({ initialItems }: { initialItems: InventoryItem
               )}
             </TableBody>
           </Table>
+          <Pagination state={paging} label="items" />
         </CardContent>
       </Card>
 

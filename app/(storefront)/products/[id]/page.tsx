@@ -17,11 +17,11 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
     currency = storeInfo.currency || product?.currency || "KES";
     const category = product?.categories?.[0];
     if (category) {
-      const all = await api.products.list({ status: "active", category });
+      const all = await api.products.list({ status: "active", channel: "site", category });
       relatedProducts = all.filter((p) => p.id !== product!.id).slice(0, 4);
     }
     if (relatedProducts.length === 0) {
-      const all = await api.products.list({ status: "active" });
+      const all = await api.products.list({ status: "active", channel: "site" });
       relatedProducts = all.filter((p) => p.id !== product!.id).slice(0, 4);
     }
   } catch {

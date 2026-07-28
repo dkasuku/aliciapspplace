@@ -1,156 +1,338 @@
 "use client";
 
-import { useState } from "react";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { Search, RefreshCw, MapPin, Phone, Mail, ChevronDown, ChevronUp, Receipt } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Search, Package, Truck, CheckCircle, Clock, XCircle } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DELIVERY_STAGES, STATUS_LABELS, type AdminDelivery, type DeliveryStatus } from "@/lib/tracking";
+import { Pagination, usePagination } from "./pagination";
 
-type Order = {
-  id?: string;
-  order_number?: number | string;
-  status?: string;
-  total?: number | string;
-  currency?: string;
-  customer_name?: string;
-  customer_email?: string;
-  customer_phone?: string;
-  items?: Array<{ name?: string; product_name?: string; quantity?: number; total?: number | string; price?: number | string }>;
-  created_at?: string;
-  payment_method?: string;
-  [key: string]: unknown;
+const money = (value: number) => `KES ${Number(value || 0).toLocaleString()}`;
+
+const when = (iso?: string | null) =>
+  iso ? new Date(iso).toLocaleString("en-KE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "—";
+
+const STATUS_STYLES: Record<string, string> = {
+  received: "bg-slate-100 text-slate-700",
+  confirmed: "bg-blue-100 text-blue-800",
+  packed: "bg-amber-100 text-amber-800",
+  out_for_delivery: "bg-purple-100 text-purple-800",
+  delivered: "bg-[#dcfce7] text-[#166534]",
+  cancelled: "bg-red-100 text-red-800",
 };
 
-const money = (v: number | string | undefined, currency = "KES") =>
-  `${currency} ${Number(v || 0).toLocaleString()}`;
+const FILTERS: Array<{ id: string; label: string }> = [
+  { id: "open", label: "Open" },
+  { id: "all", label: "All" },
+  ...DELIVERY_STAGES.map((s) => ({ id: s.id, label: s.label })),
+  { id: "cancelled", label: "Cancelled" },
+];
 
-const statusVariant = (status?: string): "default" | "secondary" | "destructive" | "warning" => {
-  const s = (status || "").toLowerCase();
-  if (s.includes("deliver") || s.includes("complete") || s.includes("fulfilled")) return "default";
-  if (s.includes("cancel") || s.includes("fail")) return "destructive";
-  if (s.includes("pending") || s.includes("process")) return "warning";
-  return "secondary";
-};
+const waLink = (phone: string) => `https://wa.me/${phone.replace(/\D/g, "").replace(/^0/, "254")}`;
 
-const StatusIcon = ({ status }: { status?: string }) => {
-  const s = (status || "").toLowerCase();
-  if (s.includes("deliver") || s.includes("complete") || s.includes("fulfilled"))
-    return <CheckCircle className="h-4 w-4 text-green-600" />;
-  if (s.includes("cancel") || s.includes("fail"))
-    return <XCircle className="h-4 w-4 text-red-600" />;
-  return <Clock className="h-4 w-4 text-amber-600" />;
-};
-
-export function OrdersManager({ initialOrders }: { initialOrders: Order[] }) {
-  const [orders] = useState<Order[]>(initialOrders);
+/**
+ * Every storefront order — sent to WhatsApp or paid online — lands here as a
+ * delivery record, with the details the customer typed at checkout.
+ */
+export function OrdersManager({ initialOrders }: { initialOrders: AdminDelivery[] }) {
+  const [orders, setOrders] = useState(initialOrders);
   const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState<Order | null>(null);
+  const [filter, setFilter] = useState("open");
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const filtered = orders.filter((o) => {
-    const q = search.toLowerCase();
-    return (
-      !q ||
-      String(o.order_number || "").includes(q) ||
-      (o.customer_name || "").toLowerCase().includes(q) ||
-      (o.customer_email || "").toLowerCase().includes(q) ||
-      (o.status || "").toLowerCase().includes(q)
-    );
-  });
+  const reload = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await fetch("/api/admin/deliveries");
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || "Could not load orders.");
+      setOrders(payload as AdminDelivery[]);
+      setError(null);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Could not load orders.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const timer = setInterval(() => void reload(), 60000);
+    return () => clearInterval(timer);
+  }, [reload]);
+
+  const filtered = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return orders.filter((order) => {
+      if (filter === "open" && (order.status === "delivered" || order.status === "cancelled")) return false;
+      if (filter !== "open" && filter !== "all" && order.status !== filter) return false;
+      if (!term) return true;
+      return [order.order_ref, order.customer_name, order.customer_phone, order.customer_email, order.city, order.address]
+        .filter(Boolean)
+        .some((field) => String(field).toLowerCase().includes(term));
+    });
+  }, [orders, search, filter]);
+
+  const paging = usePagination(filtered, 25);
+
+  async function patch(order: AdminDelivery, body: Record<string, unknown>) {
+    setBusyId(order.id);
+    setError(null);
+    try {
+      const response = await fetch(`/api/admin/deliveries/${order.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || "Could not update the order.");
+      setOrders((current) => current.map((item) => (item.id === order.id ? (payload as AdminDelivery) : item)));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Could not update the order.");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  const openCount = orders.filter((o) => o.status !== "delivered" && o.status !== "cancelled").length;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-bold text-[#0f172a]">Orders</h2>
-          <p className="text-sm text-[#64748b]">{orders.length} total orders</p>
+          <h2 className="flex items-center gap-2 text-2xl font-bold text-[#0f172a]">
+            <Receipt className="h-5 w-5 text-[#166534]" /> Orders
+          </h2>
+          <p className="text-sm text-[#64748b]">
+            {openCount} open · {orders.length} total. Every website order appears here with the
+            customer&apos;s checkout details.
+          </p>
         </div>
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94a3b8]" />
-          <Input
-            placeholder="Search orders..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-64 pl-9"
-          />
-        </div>
+        <Button variant="outline" onClick={() => void reload()} disabled={loading}>
+          <RefreshCw className={`mr-2 h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} /> Refresh
+        </Button>
       </div>
 
-      {filtered.length === 0 ? (
-        <Card>
-          <CardContent className="py-16 text-center">
-            <Package className="mx-auto h-12 w-12 text-[#cbd5e1]" />
-            <p className="mt-4 text-sm text-[#64748b]">No orders found.</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-3">
-          {filtered.map((order) => (
-            <Card key={order.id || order.order_number} className="cursor-pointer transition hover:shadow-md" >
-              <CardContent className="flex items-center justify-between p-4" >
-                <div className="flex items-center gap-4" onClick={() => setSelected(order)}>
-                  <StatusIcon status={order.status} />
-                  <div>
-                    <p className="font-bold text-[#0f172a]">#{order.order_number || order.id?.slice(0, 8)}</p>
-                    <p className="text-xs text-[#64748b]">
-                      {order.customer_name || "Guest"} · {order.items?.length ?? 0} items
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4">
-                  <Badge variant={statusVariant(order.status)}>{order.status || "pending"}</Badge>
-                  <span className="font-bold text-[#166534]">{money(order.total, order.currency as string)}</span>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+      {error && <p className="border border-red-300 bg-red-50 p-4 text-sm text-red-800">{error}</p>}
 
-      {selected && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setSelected(null)}>
-          <Card className="max-h-[80vh] w-full max-w-lg overflow-y-auto" >
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Order #{selected.order_number || selected.id?.slice(0, 8)}</CardTitle>
-                <button onClick={() => setSelected(null)} className="text-[#94a3b8] hover:text-[#0f172a]">✕</button>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center gap-3">
-                <StatusIcon status={selected.status} />
-                <Badge variant={statusVariant(selected.status)}>{selected.status || "pending"}</Badge>
-                <span className="text-xs text-[#64748b]">{selected.created_at ? new Date(selected.created_at).toLocaleString() : ""}</span>
-              </div>
-              <div className="space-y-1 text-sm">
-                <p><span className="font-bold">Customer:</span> {selected.customer_name || "Guest"}</p>
-                {selected.customer_email && <p><span className="font-bold">Email:</span> {selected.customer_email}</p>}
-                {selected.customer_phone && <p><span className="font-bold">Phone:</span> {selected.customer_phone}</p>}
-                {selected.payment_method && <p><span className="font-bold">Payment:</span> {selected.payment_method}</p>}
-              </div>
-              {selected.items && selected.items.length > 0 && (
-                <div className="space-y-2 border-t pt-3">
-                  <p className="text-xs font-bold uppercase tracking-wider text-[#64748b]">Items</p>
-                  {selected.items.map((item, i) => (
-                    <div key={i} className="flex justify-between text-sm">
-                      <span>{item.name || item.product_name || "Product"} × {item.quantity}</span>
-                      <span className="font-bold">{money(item.total || (Number(item.price || 0) * Number(item.quantity || 0)), selected.currency as string)}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <div className="flex justify-between border-t pt-3 text-lg font-bold">
-                <span>Total</span>
-                <span className="text-[#166534]">{money(selected.total, selected.currency as string)}</span>
-              </div>
-            </CardContent>
-          </Card>
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative min-w-56 flex-1">
+          <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#94a3b8]" />
+          <Input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search order number, name, phone, email or area…"
+            className="pl-9"
+          />
         </div>
-      )}
+        {FILTERS.map((option) => (
+          <Button
+            key={option.id}
+            size="sm"
+            variant={filter === option.id ? "default" : "outline"}
+            onClick={() => setFilter(option.id)}
+          >
+            {option.label}
+          </Button>
+        ))}
+      </div>
+
+      <Card>
+        <CardContent className="p-0">
+          {filtered.length === 0 ? (
+            <p className="p-10 text-center text-sm text-[#64748b]">
+              {orders.length === 0
+                ? "No website orders yet. They appear here the moment a customer checks out."
+                : "No orders match this filter."}
+            </p>
+          ) : (
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Order</TableHead>
+                    <TableHead>Customer</TableHead>
+                    <TableHead>Where</TableHead>
+                    <TableHead>Payment</TableHead>
+                    <TableHead>Total</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Placed</TableHead>
+                    <TableHead />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {paging.visible.map((order) => {
+                    const open = expanded === order.id;
+                    return (
+                      <Fragment key={order.id}>
+                        <TableRow>
+                          <TableCell className="font-mono text-xs font-bold">{order.order_ref}</TableCell>
+                          <TableCell>
+                            <span className="block">{order.customer_name || "—"}</span>
+                            <span className="text-xs text-[#64748b]">{order.customer_phone}</span>
+                          </TableCell>
+                          <TableCell className="text-[#64748b]">
+                            {order.fulfilment === "pickup"
+                              ? "Collection"
+                              : `${order.city || order.address || "Delivery"}${
+                                  order.distance_km != null ? ` · ${order.distance_km.toFixed(1)} km` : ""
+                                }`}
+                          </TableCell>
+                          <TableCell className="text-xs text-[#64748b]">{order.payment_status || "—"}</TableCell>
+                          <TableCell className="font-bold text-[#166534]">{money(order.total)}</TableCell>
+                          <TableCell>
+                            <Badge className={STATUS_STYLES[order.status] || ""}>
+                              {STATUS_LABELS[order.status] || order.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-xs text-[#64748b]">{when(order.created_at)}</TableCell>
+                          <TableCell>
+                            <Button variant="ghost" size="sm" onClick={() => setExpanded(open ? null : order.id)}>
+                              {open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+
+                        {open && (
+                          <TableRow>
+                            <TableCell colSpan={8} className="bg-[#f8faf5]">
+                              <div className="grid gap-6 p-2 lg:grid-cols-2">
+                                <div className="text-sm">
+                                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#166534]">
+                                    Customer details from checkout
+                                  </p>
+                                  <p className="mt-3 font-bold text-[#0f172a]">{order.customer_name || "—"}</p>
+                                  {order.customer_phone && (
+                                    <p className="mt-2 flex flex-wrap items-center gap-2 text-[#475569]">
+                                      <Phone className="h-3.5 w-3.5 text-[#166534]" />
+                                      <a href={`tel:${order.customer_phone.replace(/\s/g, "")}`} className="underline">
+                                        {order.customer_phone}
+                                      </a>
+                                      <a
+                                        href={waLink(order.customer_phone)}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="font-bold text-[#1da851] underline"
+                                      >
+                                        WhatsApp
+                                      </a>
+                                    </p>
+                                  )}
+                                  {order.customer_email && (
+                                    <p className="mt-2 flex items-center gap-2 text-[#475569]">
+                                      <Mail className="h-3.5 w-3.5 text-[#166534]" />
+                                      <a href={`mailto:${order.customer_email}`} className="underline">
+                                        {order.customer_email}
+                                      </a>
+                                    </p>
+                                  )}
+                                  {order.address && (
+                                    <p className="mt-2 flex items-start gap-2 text-[#475569]">
+                                      <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#166534]" />
+                                      <span>
+                                        {order.address}
+                                        {order.city ? `, ${order.city}` : ""}
+                                        {order.lat != null && order.lng != null && (
+                                          <>
+                                            {" · "}
+                                            <a
+                                              href={`https://maps.google.com/?q=${order.lat},${order.lng}`}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="font-bold text-[#166534] underline"
+                                            >
+                                              Open pin
+                                            </a>
+                                          </>
+                                        )}
+                                      </span>
+                                    </p>
+                                  )}
+                                  {order.notes && <p className="mt-2 text-[#475569]">Note: {order.notes}</p>}
+
+                                  <p className="mt-5 text-[10px] font-bold uppercase tracking-[0.18em] text-[#166534]">
+                                    Move to
+                                  </p>
+                                  <div className="mt-2 flex flex-wrap gap-2">
+                                    {DELIVERY_STAGES.map((stage) => (
+                                      <Button
+                                        key={stage.id}
+                                        size="sm"
+                                        variant={order.status === stage.id ? "default" : "outline"}
+                                        disabled={busyId === order.id || order.status === stage.id}
+                                        onClick={() => void patch(order, { status: stage.id })}
+                                      >
+                                        {stage.label}
+                                      </Button>
+                                    ))}
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="border-red-300 text-red-700 hover:bg-red-50"
+                                      disabled={busyId === order.id || order.status === "cancelled"}
+                                      onClick={() => void patch(order, { status: "cancelled" as DeliveryStatus })}
+                                    >
+                                      Cancel
+                                    </Button>
+                                  </div>
+                                </div>
+
+                                <div className="text-sm">
+                                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#166534]">Items</p>
+                                  <ul className="mt-3 space-y-1">
+                                    {order.items.map((item, index) => (
+                                      <li key={`${item.name}-${index}`} className="flex justify-between gap-4">
+                                        <span className="text-[#475569]">
+                                          {item.name} × {item.quantity}
+                                        </span>
+                                        <b>{money(item.total)}</b>
+                                      </li>
+                                    ))}
+                                    <li className="flex justify-between gap-4 border-t border-[#166534]/15 pt-1 text-[#475569]">
+                                      <span>Delivery</span>
+                                      <span>{order.delivery_fee > 0 ? money(order.delivery_fee) : "Free"}</span>
+                                    </li>
+                                    <li className="flex justify-between gap-4 font-bold text-[#0f172a]">
+                                      <span>Total</span>
+                                      <span>{money(order.total)}</span>
+                                    </li>
+                                  </ul>
+
+                                  <p className="mt-4 text-[#475569]">
+                                    {order.payment_method} · {order.payment_status}
+                                  </p>
+
+                                  <p className="mt-4 text-[10px] font-bold uppercase tracking-[0.18em] text-[#166534]">
+                                    History
+                                  </p>
+                                  <ul className="mt-2 space-y-1 text-xs text-[#64748b]">
+                                    {order.events.map((event, index) => (
+                                      <li key={index}>
+                                        {when(event.at)} — {STATUS_LABELS[event.status as DeliveryStatus] || event.status}
+                                        {event.note ? ` · ${event.note}` : ""}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </Fragment>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+              <Pagination state={paging} label="orders" />
+            </>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

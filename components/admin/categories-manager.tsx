@@ -27,7 +27,8 @@ import {
 } from "@/components/ui/dialog";
 import type { Category } from "@/lib/api/types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+// Same-origin admin proxy — see app/api/admin/backend/[...path]/route.ts
+const API_URL = "/api/admin/backend";
 
 export function CategoriesManager({ initialCategories }: { initialCategories: Category[] }) {
   const [categories, setCategories] = useState(initialCategories);

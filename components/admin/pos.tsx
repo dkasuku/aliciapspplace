@@ -19,8 +19,11 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import type { Product, SaleItem } from "@/lib/api/types";
+import { DELIVERY_TIERS, PICKUP_TIER, type Fulfilment } from "@/lib/delivery";
+import { Pagination, usePagination } from "./pagination";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+// Same-origin admin proxy — see app/api/admin/backend/[...path]/route.ts
+const API_URL = "/api/admin/backend";
 const money = (v: number) => `KES ${Number(v || 0).toLocaleString()}`;
 
 interface CartLine {
@@ -50,6 +53,9 @@ export function POS({ initialProducts }: { initialProducts: Product[] }) {
   } | null>(null);
 
   const [paymentMethod, setPaymentMethod] = useState("cash");
+  const [fulfilment, setFulfilment] = useState<Fulfilment>("pickup");
+  const [deliveryTierId, setDeliveryTierId] = useState(DELIVERY_TIERS[0].id);
+  const [deliveryAddress, setDeliveryAddress] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
 
@@ -63,8 +69,13 @@ export function POS({ initialProducts }: { initialProducts: Product[] }) {
     [products, search]
   );
 
+  const paging = usePagination(filtered, 24);
+
+  const deliveryTier = DELIVERY_TIERS.find((t) => t.id === deliveryTierId) ?? DELIVERY_TIERS[0];
   const subtotal = cart.reduce((sum, line) => sum + line.unit_price * line.quantity, 0);
-  const total = subtotal;
+  // Counter pickups are free; delivery adds the same tier fee the website charges.
+  const deliveryFee = fulfilment === "delivery" ? deliveryTier.fee : 0;
+  const total = subtotal + deliveryFee;
 
   function addToCart(product: Product) {
     setCart((prev) => {
@@ -109,6 +120,9 @@ export function POS({ initialProducts }: { initialProducts: Product[] }) {
         payment_method: paymentMethod,
         customer_name: customerName || undefined,
         customer_phone: customerPhone || undefined,
+        fulfilment,
+        delivery_fee: deliveryFee,
+        delivery_address: fulfilment === "delivery" ? deliveryAddress || undefined : undefined,
       };
 
       let saleResult: { receipt_no: string; total?: number; created_at?: string } | null = null;
@@ -365,7 +379,7 @@ export function POS({ initialProducts }: { initialProducts: Product[] }) {
         </div>
 
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-3 xl:grid-cols-4">
-          {filtered.map((p) => {
+          {paging.visible.map((p) => {
             const price = Number(p.sales_price || p.price);
             const isRental = p.product_type === "rental";
             const outOfStock = p.stock === 0;
@@ -410,6 +424,9 @@ export function POS({ initialProducts }: { initialProducts: Product[] }) {
             <p className="col-span-full py-8 text-center text-sm text-[#64748b]">No products found.</p>
           )}
         </div>
+        <div className="mt-2 rounded-xl border border-[#166534]/15 bg-white">
+          <Pagination state={paging} label="products" />
+        </div>
       </div>
 
       {/* Cart sidebar */}
@@ -448,9 +465,59 @@ export function POS({ initialProducts }: { initialProducts: Product[] }) {
           {cart.length > 0 && (
             <>
               <div className="border-t border-[#166534]/15 pt-3">
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#166534]">Fulfilment</p>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={fulfilment === "pickup" ? "default" : "outline"}
+                    onClick={() => setFulfilment("pickup")}
+                  >
+                    Pickup
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={fulfilment === "delivery" ? "default" : "outline"}
+                    onClick={() => setFulfilment("delivery")}
+                  >
+                    Delivery
+                  </Button>
+                </div>
+
+                {fulfilment === "delivery" && (
+                  <div className="mt-3 space-y-2">
+                    <select
+                      value={deliveryTierId}
+                      onChange={(e) => setDeliveryTierId(e.target.value)}
+                      className="w-full rounded-lg border border-[#166534]/25 bg-white px-3 py-2 text-sm text-[#0f172a] focus:border-[#166534] focus:outline-none"
+                      aria-label="Delivery zone"
+                    >
+                      {DELIVERY_TIERS.map((tier) => (
+                        <option key={tier.id} value={tier.id}>
+                          {tier.label} — {money(tier.fee)} ({tier.hint})
+                        </option>
+                      ))}
+                    </select>
+                    <Input
+                      value={deliveryAddress}
+                      onChange={(e) => setDeliveryAddress(e.target.value)}
+                      placeholder="Delivery address"
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="border-t border-[#166534]/15 pt-3">
                 <div className="flex justify-between text-sm">
                   <span className="text-[#64748b]">Subtotal</span>
                   <span className="font-bold">{money(subtotal)}</span>
+                </div>
+                <div className="mt-1 flex justify-between text-sm">
+                  <span className="text-[#64748b]">
+                    {fulfilment === "delivery" ? `Delivery · ${deliveryTier.label}` : PICKUP_TIER.label}
+                  </span>
+                  <span className="font-bold">{deliveryFee > 0 ? money(deliveryFee) : "Free"}</span>
                 </div>
                 <div className="mt-2 flex justify-between text-lg font-bold">
                   <span>Total</span>

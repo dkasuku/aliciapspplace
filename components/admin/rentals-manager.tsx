@@ -29,6 +29,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { Product, RentalRecord, RentalPayment } from "@/lib/api/types";
+import { Pagination, usePagination } from "./pagination";
 
 const money = (v: number) => `KES ${Number(v || 0).toLocaleString()}`;
 
@@ -265,6 +266,8 @@ export function RentalsManager({ initialRentals, products }: { initialRentals: R
   const activeCount = rentals.filter((r) => r.status === "active").length;
   const pendingCount = rentals.filter((r) => r.status === "pending").length;
 
+  const paging = usePagination(filtered, 25);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -317,7 +320,7 @@ export function RentalsManager({ initialRentals, products }: { initialRentals: R
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((r) => (
+              {paging.visible.map((r) => (
                 <TableRow key={r.id} className="cursor-pointer hover:bg-[#f0fdf4]" onClick={() => { setDetailRecord(r); setDetailOpen(true); }}>
                   <TableCell>
                     <div>
@@ -366,6 +369,7 @@ export function RentalsManager({ initialRentals, products }: { initialRentals: R
               )}
             </TableBody>
           </Table>
+          <Pagination state={paging} label="rentals" />
         </CardContent>
       </Card>
 

@@ -66,6 +66,12 @@ class Product(db.Model):
     status = db.Column(db.String(20), default="active")  # active, draft, inactive
     stock = db.Column(db.Integer, default=0)
     low_stock_threshold = db.Column(db.Integer, default=5)
+    # "sale" for outright purchase, "rental" for Lipa Pole Pole.
+    product_type = db.Column(db.String(20), default="sale")
+    rental_terms = db.Column(db.Text, nullable=True)
+    # Which channels the product appears in. Hidden from both = shop record only.
+    visible_on_site = db.Column(db.Boolean, default=True)
+    visible_in_pos = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(
         db.DateTime,
@@ -91,6 +97,10 @@ class Product(db.Model):
             "status": self.status,
             "stock": self.stock,
             "low_stock_threshold": self.low_stock_threshold,
+            "product_type": self.product_type or "sale",
+            "rental_terms": self.rental_terms,
+            "visible_on_site": True if self.visible_on_site is None else self.visible_on_site,
+            "visible_in_pos": True if self.visible_in_pos is None else self.visible_in_pos,
             "categories": [c.name for c in self.categories],
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
@@ -104,6 +114,9 @@ class Sale(db.Model):
     subtotal = db.Column(db.Float, nullable=False, default=0)
     tax = db.Column(db.Float, default=0)
     discount = db.Column(db.Float, default=0)
+    delivery_fee = db.Column(db.Float, default=0)
+    fulfilment = db.Column(db.String(20), default="pickup")
+    delivery_address = db.Column(db.String(500), nullable=True)
     payment_method = db.Column(db.String(30), default="cash")
     customer_name = db.Column(db.String(200), nullable=True)
     customer_phone = db.Column(db.String(50), nullable=True)
@@ -119,6 +132,9 @@ class Sale(db.Model):
             "subtotal": self.subtotal,
             "tax": self.tax,
             "discount": self.discount,
+            "delivery_fee": self.delivery_fee or 0,
+            "fulfilment": self.fulfilment or "pickup",
+            "delivery_address": self.delivery_address,
             "payment_method": self.payment_method,
             "customer_name": self.customer_name,
             "customer_phone": self.customer_phone,
@@ -343,6 +359,22 @@ def list_products():
         query = query.filter(Product.name.ilike(f"%{search}%"))
     if category and category != "all":
         query = query.join(Product.categories).filter(Category.slug == slugify(category))
+
+    # channel=site / channel=pos hides anything the shop has switched off for
+    # that surface. Admin omits it and sees everything.
+    channel = request.args.get("channel")
+    if channel == "site":
+        query = query.filter(Product.visible_on_site.isnot(False))
+    elif channel == "pos":
+        query = query.filter(Product.visible_in_pos.isnot(False))
+
+    product_type = request.args.get("product_type")
+    if product_type and product_type != "all":
+        if product_type == "sale":
+            query = query.filter(db.or_(Product.product_type == "sale", Product.product_type.is_(None)))
+        else:
+            query = query.filter(Product.product_type == product_type)
+
     products = query.order_by(Product.created_at.desc()).all()
     return jsonify([p.to_dict() for p in products])
 
@@ -372,6 +404,10 @@ def create_product():
         status=data.get("status", "active"),
         stock=int(data.get("stock", 0)),
         low_stock_threshold=int(data.get("low_stock_threshold", 5)),
+        product_type=data.get("product_type", "sale"),
+        rental_terms=data.get("rental_terms"),
+        visible_on_site=bool(data.get("visible_on_site", True)),
+        visible_in_pos=bool(data.get("visible_in_pos", True)),
     )
     for cat_name in data.get("categories", []):
         product.categories.append(get_or_create_category(cat_name))
@@ -398,6 +434,12 @@ def update_product(product_id):
     product.status = data.get("status", product.status)
     product.stock = int(data.get("stock", product.stock))
     product.low_stock_threshold = int(data.get("low_stock_threshold", product.low_stock_threshold))
+    product.product_type = data.get("product_type", product.product_type)
+    product.rental_terms = data.get("rental_terms", product.rental_terms)
+    if "visible_on_site" in data:
+        product.visible_on_site = bool(data["visible_on_site"])
+    if "visible_in_pos" in data:
+        product.visible_in_pos = bool(data["visible_in_pos"])
     if "categories" in data:
         product.categories = []
         for cat_name in data["categories"]:
@@ -526,7 +568,8 @@ def create_sale():
 
     tax = float(data.get("tax", 0))
     discount = float(data.get("discount", 0))
-    total = subtotal + tax - discount
+    delivery_fee = float(data.get("delivery_fee", 0) or 0)
+    total = subtotal + tax + delivery_fee - discount
     receipt_no = f"R{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
 
     sale = Sale(
@@ -536,6 +579,9 @@ def create_sale():
         subtotal=subtotal,
         tax=tax,
         discount=discount,
+        delivery_fee=delivery_fee,
+        fulfilment=data.get("fulfilment", "pickup"),
+        delivery_address=data.get("delivery_address"),
         payment_method=data.get("payment_method", "cash"),
         customer_name=data.get("customer_name"),
         customer_phone=data.get("customer_phone"),
@@ -890,8 +936,59 @@ def reseed_images():
     return jsonify({"updated": updated})
 
 
+def run_migrations():
+    """
+    create_all() only creates missing tables, never missing columns. Adds any
+    column this build expects but the live database predates. Idempotent.
+    """
+    wanted = {
+        "product": [
+            ("product_type", "VARCHAR(20) DEFAULT 'sale'"),
+            ("rental_terms", "TEXT"),
+            ("visible_on_site", "BOOLEAN DEFAULT TRUE"),
+            ("visible_in_pos", "BOOLEAN DEFAULT TRUE"),
+        ],
+        "sale": [
+            ("delivery_fee", "DOUBLE PRECISION DEFAULT 0"),
+            ("fulfilment", "VARCHAR(20) DEFAULT 'pickup'"),
+            ("delivery_address", "VARCHAR(500)"),
+        ],
+    }
+
+    inspector = db.inspect(db.engine)
+    existing_tables = set(inspector.get_table_names())
+
+    for table, columns in wanted.items():
+        if table not in existing_tables:
+            continue
+        present = {c["name"] for c in inspector.get_columns(table)}
+        for name, ddl in columns:
+            if name in present:
+                continue
+            db.session.execute(db.text(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}"))
+            print(f"[migration] {table}.{name} added")
+        db.session.commit()
+
+    # Backfill rows written before the columns existed.
+    db.session.execute(
+        db.text(
+            "UPDATE product SET product_type = 'sale' WHERE product_type IS NULL"
+        )
+    )
+    db.session.execute(
+        db.text(
+            "UPDATE product SET visible_on_site = TRUE WHERE visible_on_site IS NULL"
+        )
+    )
+    db.session.execute(
+        db.text("UPDATE product SET visible_in_pos = TRUE WHERE visible_in_pos IS NULL")
+    )
+    db.session.commit()
+
+
 with app.app_context():
     db.create_all()
+    run_migrations()
     seed_data()
 
 
