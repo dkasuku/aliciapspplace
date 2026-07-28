@@ -70,7 +70,7 @@ export function ProductsManager({
     return true;
   });
 
-  const paging = usePagination(filtered, 25);
+  const paging = usePagination(filtered, 10);
 
   const emptyForm = {
     name: "",

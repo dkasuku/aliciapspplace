@@ -1,6 +1,5 @@
 import { api } from "@/lib/api";
 import { AdminShell } from "@/components/admin/admin-shell";
-import { AdminAgentPanel } from "@/components/admin/admin-agent-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -9,5 +8,6 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   try {
     stats = await api.stats();
   } catch {}
-  return <AdminShell stats={stats}>{children}<AdminAgentPanel /></AdminShell>;
+  // The agent trigger lives in the shell header, beside "View store".
+  return <AdminShell stats={stats}>{children}</AdminShell>;
 }

@@ -10,7 +10,7 @@ export const PAGE_SIZES = [10, 25, 50, 100];
  * Client-side paging for admin tables. Resets to page 1 whenever the filtered
  * set changes, so narrowing a search never strands you on an empty page.
  */
-export function usePagination<T>(items: T[], initialSize = 25) {
+export function usePagination<T>(items: T[], initialSize = 10) {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(initialSize);
 

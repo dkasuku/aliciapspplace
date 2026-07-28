@@ -24,7 +24,7 @@ const money = (v: number) => `KES ${Number(v || 0).toLocaleString()}`;
 export function SalesHistory({ initialSales }: { initialSales: Sale[] }) {
   const [expanded, setExpanded] = useState<string | null>(null);
 
-  const paging = usePagination(initialSales, 25);
+  const paging = usePagination(initialSales, 10);
 
   return (
     <div className="space-y-6">

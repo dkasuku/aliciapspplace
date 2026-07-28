@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Stats } from "@/lib/api/types";
+import { AdminAgentPanel } from "./admin-agent-panel";
 
 type NavLeaf = { href: string; label: string; icon: typeof LayoutDashboard };
 type NavGroup = { label: string; icon: typeof LayoutDashboard; children: NavLeaf[] };
@@ -211,6 +212,7 @@ export function AdminShell({ children, stats }: { children: React.ReactNode; sta
           </div>
           <h1 className="hidden text-lg font-bold text-[#0f172a] md:block">Admin Panel</h1>
           <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+            <AdminAgentPanel />
             <Link href="/" className="text-sm font-medium text-[#166534] hover:underline">
               <span className="hidden sm:inline">View store →</span>
               <span className="sm:hidden">Store →</span>

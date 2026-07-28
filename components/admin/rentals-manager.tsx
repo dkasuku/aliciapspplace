@@ -266,7 +266,7 @@ export function RentalsManager({ initialRentals, products }: { initialRentals: R
   const activeCount = rentals.filter((r) => r.status === "active").length;
   const pendingCount = rentals.filter((r) => r.status === "pending").length;
 
-  const paging = usePagination(filtered, 25);
+  const paging = usePagination(filtered, 10);
 
   return (
     <div className="space-y-6">

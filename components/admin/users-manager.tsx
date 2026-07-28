@@ -59,7 +59,7 @@ export function UsersManager({ initialUsers }: { initialUsers: UserAccount[] }) 
     return "warning";
   };
 
-  const paging = usePagination(users, 25);
+  const paging = usePagination(users, 10);
 
   return (
     <div className="space-y-6">

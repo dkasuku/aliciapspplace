@@ -126,7 +126,7 @@ export function InventoryManager({ initialItems }: { initialItems: InventoryItem
     });
   }
 
-  const paging = usePagination(filtered, 25);
+  const paging = usePagination(filtered, 10);
 
   return (
     <div className="space-y-6">

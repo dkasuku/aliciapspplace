@@ -45,7 +45,7 @@ export function DiscountsManager({ initialDiscounts }: { initialDiscounts: Disco
     setDiscounts(discounts.map((d) => (d.id === id ? { ...d, active: !d.active } : d)));
   };
 
-  const paging = usePagination(discounts, 25);
+  const paging = usePagination(discounts, 10);
 
   return (
     <div className="space-y-6">

@@ -141,10 +141,11 @@ export function AdminAgentPanel() {
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-xl bg-[#166534] px-5 py-4 text-xs font-black uppercase tracking-[0.16em] text-white shadow-lg transition-transform hover:-translate-y-0.5"
+          className="flex shrink-0 items-center gap-1.5 rounded-lg border border-[#166534]/30 px-2.5 py-1.5 text-xs font-bold text-[#166534] transition-colors hover:bg-[#f0fdf4] sm:px-3"
         >
-          <Bot className="h-4 w-4" />
-          Admin AI
+          <Bot className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Admin AI</span>
+          <span className="sm:hidden">AI</span>
         </button>
       )}
     </>

@@ -69,7 +69,7 @@ export function POS({ initialProducts }: { initialProducts: Product[] }) {
     [products, search]
   );
 
-  const paging = usePagination(filtered, 24);
+  const paging = usePagination(filtered, 10);
 
   const deliveryTier = DELIVERY_TIERS.find((t) => t.id === deliveryTierId) ?? DELIVERY_TIERS[0];
   const subtotal = cart.reduce((sum, line) => sum + line.unit_price * line.quantity, 0);

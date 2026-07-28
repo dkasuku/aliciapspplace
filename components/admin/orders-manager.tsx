@@ -78,7 +78,7 @@ export function OrdersManager({ initialOrders }: { initialOrders: AdminDelivery[
     });
   }, [orders, search, filter]);
 
-  const paging = usePagination(filtered, 25);
+  const paging = usePagination(filtered, 10);
 
   async function patch(order: AdminDelivery, body: Record<string, unknown>) {
     setBusyId(order.id);

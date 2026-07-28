@@ -2,6 +2,7 @@
 
 import { type FormEvent, useState } from "react";
 import Link from "next/link";
+import { MessageCircle } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -61,8 +62,9 @@ export function AgentPanel({ storeName }: { storeName: string }) {
           </form>
         </section>
       )}
-      <button type="button" onClick={() => setOpen((value) => !value)} className="ml-auto block border border-[#166534] bg-[#166534] px-5 py-4 text-xs font-black uppercase tracking-[0.16em] text-white shadow-[5px_5px_0_#22c55e] transition-transform hover:-translate-y-0.5" aria-expanded={open}>
-        {open ? "Close" : "Ask the shop"}
+      <button type="button" onClick={() => setOpen((value) => !value)} className="ml-auto flex items-center gap-2 rounded-full border border-[#166534] bg-[#166534] px-4 py-2.5 text-[11px] font-black uppercase tracking-[0.14em] text-white shadow-lg transition-transform hover:-translate-y-0.5 sm:px-5 sm:py-3" aria-expanded={open}>
+        <MessageCircle className="h-4 w-4 shrink-0" aria-hidden />
+        <span className={open ? "" : "hidden sm:inline"}>{open ? "Close" : "Ask the shop"}</span>
       </button>
     </div>
   );

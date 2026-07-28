@@ -178,7 +178,7 @@ export function ReturnsManager({ initialReturns, products }: { initialReturns: R
   const totalRefunds = returns.filter((r) => r.status === "refunded").reduce((sum, r) => sum + r.refund_amount, 0);
   const pendingCount = returns.filter((r) => r.status === "pending").length;
 
-  const paging = usePagination(filtered, 25);
+  const paging = usePagination(filtered, 10);
 
   return (
     <div className="space-y-6">

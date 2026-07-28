@@ -148,7 +148,9 @@ export function SiteHeader({ siteContent }: { siteContent?: SiteContent }) {
 
         {/* Desktop mega-menu */}
         <nav className="hidden bg-[#147243] text-white xl:block" onMouseLeave={() => setHoverMenu(null)}>
-          <div className="mx-auto flex max-w-7xl items-center gap-1 px-5">
+          {/* flex-wrap: the category list is longer than 1280px, and without it
+              the row spilled past the viewport and dragged the whole page. */}
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-1 px-5">
             <Link href="/" className="flex shrink-0 items-center px-3 py-3 text-[11px] font-bold uppercase tracking-wider hover:bg-[#0d5933]">Home</Link>
             <Link href="/shop" className="flex shrink-0 items-center px-3 py-3 text-[11px] font-bold uppercase tracking-wider hover:bg-[#0d5933]">Shop all</Link>
             {menuItems.map((item) => (
@@ -169,7 +171,8 @@ export function SiteHeader({ siteContent }: { siteContent?: SiteContent }) {
             ))}
             <Link href="/track" className="ml-auto whitespace-nowrap px-3 py-3 text-[11px] font-bold uppercase tracking-wider text-[#c9f7d1] hover:text-white">Track order</Link>
             <Link href="/blog" className="whitespace-nowrap px-3 py-3 text-[11px] font-bold uppercase tracking-wider text-[#c9f7d1] hover:text-white">Blog</Link>
-            <a href="tel:+254724126009" className="whitespace-nowrap px-3 py-3 text-[11px] font-bold uppercase tracking-wider text-[#c9f7d1] hover:text-white">+254 724 126 009</a>
+            {/* The phone number lives in the top bar. Repeating it here pushed
+                the row past the viewport and wrapped it onto a line of its own. */}
           </div>
         </nav>
 

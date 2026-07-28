@@ -12,7 +12,9 @@ export default async function StorefrontLayout({ children }: { children: React.R
   return (
     <CartProvider>
       <SiteHeader siteContent={siteContent} />
-      {children}
+      {/* Reserves room for the fixed cart and chat launchers so page content —
+          the checkout button especially — is never sitting underneath them. */}
+      <div className="pb-24 sm:pb-28">{children}</div>
       <FloatingCartButton />
       <CartToast />
       <AgentPanel storeName="Alicia Phone Place" />
