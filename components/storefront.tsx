@@ -68,6 +68,8 @@ function PhoneSections({ products, currency, loading, onAdd }: { products: Produ
   const rentalPhones = useMemo(() => allPhones.filter((p) => p.product_type === "rental" || p.product_type === "both"), [allPhones]);
 
   const tabProducts = phoneTab === "all" ? allPhones : phoneTab === "sale" ? salePhones : rentalPhones;
+  // 15 per page; switching tab resets to page one via the key on the grid.
+  const phonePaging = useProductPaging(tabProducts, 15);
   const tabLabel = phoneTab === "all" ? "All Phones" : phoneTab === "sale" ? "Phones for Sale" : "Lipa Pole Pole";
 
   if (!allPhones.length) return null;
@@ -96,7 +98,7 @@ function PhoneSections({ products, currency, loading, onAdd }: { products: Produ
           {tabs.map((tab) => (
             <button
               key={tab.key}
-              onClick={() => setPhoneTab(tab.key)}
+              onClick={() => { setPhoneTab(tab.key); phonePaging.setPage(1); }}
               className={`flex items-center gap-1.5 whitespace-nowrap rounded-full px-4 py-2 text-[10px] font-bold uppercase tracking-wider transition-colors ${
                 phoneTab === tab.key
                   ? tab.badge === "rental"
@@ -114,7 +116,7 @@ function PhoneSections({ products, currency, loading, onAdd }: { products: Produ
 
       {tabProducts.length ? (
         <div className="mt-7 grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-          {tabProducts.map((product) => (
+          {phonePaging.visible.map((product) => (
             <ProductCard key={product.id} product={product} currency={currency} loading={loading} onAdd={() => void onAdd(product)} />
           ))}
         </div>
@@ -125,6 +127,8 @@ function PhoneSections({ products, currency, loading, onAdd }: { products: Produ
             : "No phones available in this category right now."}
         </div>
       )}
+
+      <ProductPagination state={phonePaging} scrollTo="phones" />
 
       {phoneTab === "rental" && rentalPhones.length > 0 && (
         <div className="mt-8 rounded-2xl border border-[#fbbf24]/30 bg-[#fffbeb] p-5">
