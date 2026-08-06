@@ -15,7 +15,7 @@ export default async function TrackPage({
 }) {
   const { ref } = await searchParams;
   return (
-    <main className="min-h-screen bg-[#f8faf5]">
+    <main className="min-h-screen bg-[#f8faf5] pb-24 sm:pb-28">
       <TrackDelivery initialRef={ref || ""} />
     </main>
   );

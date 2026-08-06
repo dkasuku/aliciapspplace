@@ -79,7 +79,7 @@ export function ProductDetail({ product, currency, relatedProducts = [] }: { pro
   const isRental = product.product_type === "rental" || product.product_type === "both";
 
   return (
-    <main className="min-h-screen bg-[#f7f8f5] pt-6">
+    <main className="min-h-screen bg-[#f7f8f5] pb-24 pt-6 sm:pb-28">
       <div className="mx-auto max-w-6xl px-5 py-4">
         <div className="flex min-w-0 items-center gap-2 overflow-x-auto whitespace-nowrap pb-1 text-[10px] font-bold uppercase tracking-[0.2em] text-[#166534]">
           <Link href="/" className="shrink-0 hover:text-[#14532d]">← Home</Link>

@@ -7,7 +7,7 @@ export default async function CheckoutPage() {
   // Rates are editable under Admin -> Shipping; fall back to the built-in table.
   const { deliveryTiers } = await getSiteContent();
   return (
-    <main className="min-h-screen">
+    <main className="min-h-screen pb-24 sm:pb-28">
       <Checkout tiers={deliveryTiers} />
     </main>
   );

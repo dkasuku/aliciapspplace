@@ -14,7 +14,7 @@ export default function CartPage() {
   const count = cart.item_count ?? items.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
-    <main className="min-h-screen bg-[#f7f8f5] text-[#17251f]">
+    <main className="min-h-screen bg-[#f7f8f5] pb-24 text-[#17251f] sm:pb-28">
       <div className="mx-auto max-w-7xl px-5 pt-5">
         <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-[0.2em] text-[#166534]">
           <Link href="/" className="hover:text-[#14532d]">← Home</Link>
