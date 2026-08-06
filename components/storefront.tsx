@@ -23,7 +23,7 @@ export function Storefront({ store, products, categories, setupMessage, showingD
   const visibleProducts = useMemo(() => products.filter((product) => activeCategory === "all" || product.categories?.includes(activeCategory)), [activeCategory, products]);
   const scrollToCatalog = () => document.getElementById("catalog")?.scrollIntoView({ behavior: "smooth" });
   const chooseCategory = (category: string) => { setActiveCategory(category); scrollToCatalog(); };
-  const paging = useProductPaging(visibleProducts);
+  const paging = useProductPaging(visibleProducts, 15);
   const add = async (product: Product) => { await update(product.id, 1, { name: product.name, price: product.price, sales_price: product.sales_price, images: product.images }); };
 
   return <main id="top" className="min-h-screen bg-[#f7f8f5] text-[#17251f]">
