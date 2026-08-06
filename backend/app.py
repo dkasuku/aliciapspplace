@@ -167,6 +167,68 @@ class SaleItem(db.Model):
         }
 
 
+class Rental(db.Model):
+    """A Lipa Pole Pole agreement: a phone paid off in daily instalments."""
+    id = db.Column(db.String(36), primary_key=True)
+    product_id = db.Column(db.String(36), nullable=True)
+    product_name = db.Column(db.String(200), nullable=False)
+    product_type = db.Column(db.String(40), default="phone")
+    customer_name = db.Column(db.String(200), nullable=False)
+    customer_phone = db.Column(db.String(50), nullable=False)
+    customer_email = db.Column(db.String(200), nullable=True)
+    id_number = db.Column(db.String(60), nullable=False)
+    id_image = db.Column(db.Text, nullable=True)
+    total_amount = db.Column(db.Float, default=0)
+    amount_paid = db.Column(db.Float, default=0)
+    daily_payment = db.Column(db.Float, default=0)
+    payment_duration_days = db.Column(db.Integer, default=0)
+    start_date = db.Column(db.String(40), nullable=True)
+    expected_end_date = db.Column(db.String(40), nullable=True)
+    loan_company = db.Column(db.String(120), nullable=True)
+    status = db.Column(db.String(30), default="pending")
+    payments_json = db.Column(db.Text, nullable=True)
+    notes = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(
+        db.DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+    def payments(self):
+        try:
+            return json.loads(self.payments_json) if self.payments_json else []
+        except (ValueError, TypeError):
+            return []
+
+    def to_dict(self):
+        paid = float(self.amount_paid or 0)
+        return {
+            "id": self.id,
+            "product_id": self.product_id,
+            "product_name": self.product_name,
+            "product_type": self.product_type or "phone",
+            "customer_name": self.customer_name,
+            "customer_phone": self.customer_phone,
+            "customer_email": self.customer_email,
+            "id_number": self.id_number,
+            "id_image": self.id_image,
+            "total_amount": self.total_amount or 0,
+            "amount_paid": paid,
+            "remaining_balance": (self.total_amount or 0) - paid,
+            "daily_payment": self.daily_payment or 0,
+            "payment_duration_days": self.payment_duration_days or 0,
+            "start_date": self.start_date,
+            "expected_end_date": self.expected_end_date,
+            "loan_company": self.loan_company,
+            "status": self.status,
+            "payments": self.payments(),
+            "notes": self.notes,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
 class StockMovement(db.Model):
     id = db.Column(db.String(36), primary_key=True)
     product_id = db.Column(db.String(36), db.ForeignKey("product.id"), nullable=False)
@@ -839,6 +901,94 @@ def update_delivery(delivery_id):
 
     db.session.commit()
     return jsonify(delivery.to_dict())
+
+
+# ── Lipa Pole Pole (rentals) ─────────────────────────────────────────────────
+
+RENTAL_FIELDS = (
+    "product_id", "product_name", "product_type", "customer_name", "customer_phone",
+    "customer_email", "id_number", "id_image", "start_date", "expected_end_date",
+    "loan_company", "status", "notes",
+)
+RENTAL_NUMBERS = ("total_amount", "amount_paid", "daily_payment")
+
+
+def apply_rental(rental, data):
+    for field in RENTAL_FIELDS:
+        if field in data:
+            setattr(rental, field, data.get(field))
+    for field in RENTAL_NUMBERS:
+        if field in data:
+            setattr(rental, field, float(data.get(field) or 0))
+    if "payment_duration_days" in data:
+        rental.payment_duration_days = int(data.get("payment_duration_days") or 0)
+    if "payments" in data:
+        rental.payments_json = json.dumps(data.get("payments") or [])
+    return rental
+
+
+@app.get("/api/rentals")
+def list_rentals():
+    rentals = Rental.query.order_by(Rental.created_at.desc()).limit(500).all()
+    return jsonify([r.to_dict() for r in rentals])
+
+
+@app.post("/api/rentals")
+def create_rental():
+    data = request.get_json(force=True) or {}
+    if not (data.get("customer_name") or "").strip():
+        return jsonify({"error": "A customer name is required."}), 400
+    if not (data.get("product_name") or "").strip():
+        return jsonify({"error": "Choose the phone this agreement is for."}), 400
+
+    rental = Rental(id=gen_id(), product_name=data["product_name"], customer_name=data["customer_name"],
+                    customer_phone=data.get("customer_phone", ""), id_number=data.get("id_number", ""))
+    apply_rental(rental, data)
+    db.session.add(rental)
+    db.session.commit()
+    return jsonify(rental.to_dict()), 201
+
+
+@app.put("/api/rentals/<rental_id>")
+def update_rental(rental_id):
+    rental = Rental.query.get_or_404(rental_id)
+    apply_rental(rental, request.get_json(force=True) or {})
+    db.session.commit()
+    return jsonify(rental.to_dict())
+
+
+@app.delete("/api/rentals/<rental_id>")
+def delete_rental(rental_id):
+    rental = Rental.query.get_or_404(rental_id)
+    db.session.delete(rental)
+    db.session.commit()
+    return jsonify({"ok": True, "deleted": rental_id})
+
+
+@app.post("/api/rentals/<rental_id>/payments")
+def add_rental_payment(rental_id):
+    """Records an instalment and moves the running balance."""
+    rental = Rental.query.get_or_404(rental_id)
+    data = request.get_json(force=True) or {}
+    amount = float(data.get("amount") or 0)
+    if amount <= 0:
+        return jsonify({"error": "Enter a payment amount greater than zero."}), 400
+
+    payments = rental.payments()
+    payments.append({
+        "id": gen_id(),
+        "amount": amount,
+        "date": data.get("date") or datetime.now(timezone.utc).isoformat(),
+        "method": data.get("method", "Cash"),
+        "reference": data.get("reference"),
+        "notes": data.get("notes"),
+    })
+    rental.payments_json = json.dumps(payments)
+    rental.amount_paid = float(rental.amount_paid or 0) + amount
+    if rental.amount_paid >= float(rental.total_amount or 0) and rental.total_amount:
+        rental.status = "completed"
+    db.session.commit()
+    return jsonify(rental.to_dict())
 
 
 # ── Dashboard / Stats ────────────────────────────────────────────────────────

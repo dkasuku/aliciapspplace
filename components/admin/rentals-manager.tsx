@@ -28,7 +28,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { Product, RentalRecord, RentalPayment } from "@/lib/api/types";
+import type { Product, RentalRecord } from "@/lib/api/types";
 import { Pagination, usePagination } from "./pagination";
 
 const money = (v: number) => `KES ${Number(v || 0).toLocaleString()}`;
@@ -129,7 +129,9 @@ export function RentalsManager({ initialRentals, products }: { initialRentals: R
   }
 
   function onProductSelect(productId: string) {
-    const product = rentalProducts.find((p) => p.id === productId);
+    // The dropdown falls back to every product when nothing is marked Lipa Pole
+    // Pole, so look the choice up in the full list or product_id never gets set.
+    const product = products.find((p) => p.id === productId);
     if (product) {
       const totalAmount = product.sales_price || product.price;
       setForm((prev) => ({
@@ -150,6 +152,19 @@ export function RentalsManager({ initialRentals, products }: { initialRentals: R
   function computeDailyPayment(total: number, durationDays: number): number {
     if (!durationDays) return 0;
     return Math.ceil(total / durationDays);
+  }
+
+  const [apiError, setApiError] = useState<string | null>(null);
+
+  async function api(path: string, method = "GET", body?: unknown) {
+    const res = await fetch(`/api/admin/backend/api${path}`, {
+      method,
+      headers: body ? { "Content-Type": "application/json" } : undefined,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const payload = await res.json().catch(() => null);
+    if (!res.ok) throw new Error((payload as { error?: string } | null)?.error || `Request failed (HTTP ${res.status}).`);
+    return payload;
   }
 
   function save() {
@@ -184,22 +199,34 @@ export function RentalsManager({ initialRentals, products }: { initialRentals: R
     };
 
     startTransition(async () => {
-      if (editing) {
-        setRentals((prev) => prev.map((r) => (r.id === editing.id ? payload : r)));
-      } else {
-        setRentals((prev) => [payload, ...prev]);
+      try {
+        const saved = (await (editing
+          ? api(`/rentals/${editing.id}`, "PUT", payload)
+          : api("/rentals", "POST", payload))) as RentalRecord;
+        setRentals((prev) => (editing ? prev.map((r) => (r.id === editing.id ? saved : r)) : [saved, ...prev]));
+        setApiError(null);
+        setDialogOpen(false);
+      } catch (reason) {
+        setApiError(reason instanceof Error ? reason.message : "The rental could not be saved.");
       }
-      setDialogOpen(false);
     });
   }
 
-  function remove(id: string) {
-    if (!confirm("Delete this rental record?")) return;
+  async function remove(id: string) {
+    await api(`/rentals/${id}`, "DELETE");
     setRentals((prev) => prev.filter((r) => r.id !== id));
   }
 
   function updateStatus(id: string, status: string) {
-    setRentals((prev) => prev.map((r) => (r.id === id ? { ...r, status, updated_at: new Date().toISOString() } : r)));
+    startTransition(async () => {
+      try {
+        const saved = (await api(`/rentals/${id}`, "PUT", { status })) as RentalRecord;
+        setRentals((prev) => prev.map((r) => (r.id === id ? saved : r)));
+        setApiError(null);
+      } catch (reason) {
+        setApiError(reason instanceof Error ? reason.message : "The status could not be updated.");
+      }
+    });
   }
 
   function openPaymentDialog(record: RentalRecord) {
@@ -213,32 +240,23 @@ export function RentalsManager({ initialRentals, products }: { initialRentals: R
     const amount = parseFloat(paymentForm.amount) || 0;
     if (amount <= 0) return;
 
-    const newPayment: RentalPayment = {
-      id: `pay-${Date.now()}`,
-      amount,
-      date: new Date(paymentForm.date).toISOString(),
-      method: paymentForm.method,
-      reference: paymentForm.reference || undefined,
-      notes: paymentForm.notes || undefined,
-    };
-
-    setRentals((prev) =>
-      prev.map((r) => {
-        if (r.id !== paymentForRental.id) return r;
-        const updatedPayments = [...r.payments, newPayment];
-        const newAmountPaid = updatedPayments.reduce((sum, p) => sum + p.amount, 0);
-        return {
-          ...r,
-          payments: updatedPayments,
-          amount_paid: newAmountPaid,
-          remaining_balance: r.total_amount - newAmountPaid,
-          status: newAmountPaid >= r.total_amount ? "completed" : r.status,
-          updated_at: new Date().toISOString(),
-        };
-      })
-    );
-    setPaymentDialogOpen(false);
-    setPaymentForRental(null);
+    startTransition(async () => {
+      try {
+        const saved = (await api(`/rentals/${paymentForRental.id}/payments`, "POST", {
+          amount,
+          date: new Date(paymentForm.date).toISOString(),
+          method: paymentForm.method,
+          reference: paymentForm.reference || undefined,
+          notes: paymentForm.notes || undefined,
+        })) as RentalRecord;
+        setRentals((prev) => prev.map((r) => (r.id === saved.id ? saved : r)));
+        setApiError(null);
+        setPaymentDialogOpen(false);
+        setPaymentForRental(null);
+      } catch (reason) {
+        setApiError(reason instanceof Error ? reason.message : "The payment could not be recorded.");
+      }
+    });
   }
 
   function handleIdImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -273,6 +291,7 @@ export function RentalsManager({ initialRentals, products }: { initialRentals: R
 
   return (
     <div className="space-y-6">
+      {apiError && <p className="border border-red-300 bg-red-50 p-4 text-sm text-red-800">{apiError}</p>}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-[#0f172a]">Lipa Pole Pole — Rental Management</h2>
