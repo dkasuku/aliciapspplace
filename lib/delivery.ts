@@ -85,8 +85,29 @@ export function distanceKm(from: LatLng, to: LatLng): number {
   return 2 * earthRadiusKm * Math.asin(Math.min(1, Math.sqrt(a)));
 }
 
-export function tierForDistance(km: number): DeliveryTier {
-  return DELIVERY_TIERS.find((tier) => tier.maxKm != null && km <= tier.maxKm) ?? DELIVERY_TIERS[DELIVERY_TIERS.length - 1];
+/**
+ * Resolves against a shop-edited tier list when one is supplied, falling back to
+ * the built-in table. Overrides are validated: a malformed list is ignored
+ * rather than allowed to produce a free or nonsensical delivery.
+ */
+export function resolveTiers(override?: DeliveryTier[] | null): DeliveryTier[] {
+  if (!override || !override.length) return DELIVERY_TIERS;
+  const clean = override
+    .filter((t) => t && typeof t.label === "string" && Number.isFinite(Number(t.fee)))
+    .map((t) => ({
+      id: String(t.id || t.label),
+      label: String(t.label),
+      hint: String(t.hint ?? ""),
+      fee: Math.min(MAX_DELIVERY_FEE, Math.max(MIN_DELIVERY_FEE, Number(t.fee))),
+      maxKm: t.maxKm == null ? null : Number(t.maxKm),
+      note: t.note,
+    }))
+    .sort((a, b) => (a.maxKm ?? Infinity) - (b.maxKm ?? Infinity));
+  return clean.length ? clean : DELIVERY_TIERS;
+}
+
+export function tierForDistance(km: number, tiers: DeliveryTier[] = DELIVERY_TIERS): DeliveryTier {
+  return tiers.find((tier) => tier.maxKm != null && km <= tier.maxKm) ?? tiers[tiers.length - 1];
 }
 
 export interface DeliveryQuote {
@@ -98,12 +119,12 @@ export interface DeliveryQuote {
 }
 
 /** Quotes a drop-off point. Always recomputed on the server so the fee cannot be forged. */
-export function quoteDelivery(point: LatLng | null | undefined): DeliveryQuote {
+export function quoteDelivery(point: LatLng | null | undefined, tiers?: DeliveryTier[] | null): DeliveryQuote {
   if (!point || !Number.isFinite(point.lat) || !Number.isFinite(point.lng)) {
     return { fee: PICKUP_TIER.fee, km: 0, label: PICKUP_TIER.label, tier: PICKUP_TIER.id };
   }
   const km = distanceKm(SHOP_LOCATION, point);
-  const tier = tierForDistance(km);
+  const tier = tierForDistance(km, resolveTiers(tiers));
   // Delivery never falls below KES 100 or climbs past KES 700, whatever the tiers say.
   const fee = Math.min(MAX_DELIVERY_FEE, Math.max(MIN_DELIVERY_FEE, tier.fee));
   return { fee, km, label: tier.label, tier: tier.id, note: tier.note };

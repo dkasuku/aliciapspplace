@@ -10,7 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { User, Plus, Trash2, Mail, Shield } from "lucide-react";
+import { User, Plus, Mail, Shield, Phone, ChevronDown, ChevronUp } from "lucide-react";
+import { DeleteButton } from "./delete-button";
 import { useState } from "react";
 import { Pagination, usePagination } from "./pagination";
 
@@ -18,15 +19,18 @@ type UserAccount = {
   id: string;
   name: string;
   email: string;
+  phone?: string;
   role: "admin" | "staff" | "viewer";
   active: boolean;
   last_login?: string | null;
+  created_at?: string;
 };
 
 export function UsersManager({ initialUsers }: { initialUsers: UserAccount[] }) {
   const [users, setUsers] = useState<UserAccount[]>(initialUsers);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: "", email: "", role: "staff" as UserAccount["role"] });
+  const [form, setForm] = useState({ name: "", email: "", phone: "", role: "staff" as UserAccount["role"] });
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   const addUser = () => {
     if (!form.name || !form.email) return;
@@ -36,12 +40,14 @@ export function UsersManager({ initialUsers }: { initialUsers: UserAccount[] }) 
         id: `user-${Date.now()}`,
         name: form.name,
         email: form.email,
+        phone: form.phone,
         role: form.role,
         active: true,
         last_login: null,
+        created_at: new Date().toISOString(),
       },
     ]);
-    setForm({ name: "", email: "", role: "staff" });
+    setForm({ name: "", email: "", phone: "", role: "staff" });
     setShowForm(false);
   };
 
@@ -85,6 +91,10 @@ export function UsersManager({ initialUsers }: { initialUsers: UserAccount[] }) 
                 <Label htmlFor="user-email">Email</Label>
                 <Input id="user-email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="jane@store.com" />
               </div>
+              <div className="grid gap-2">
+                <Label htmlFor="user-phone">Phone number</Label>
+                <Input id="user-phone" type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="07xx xxx xxx" />
+              </div>
               <div>
                 <Label htmlFor="user-role">Role</Label>
                 <select id="user-role" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as UserAccount["role"] })} className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
@@ -126,6 +136,12 @@ export function UsersManager({ initialUsers }: { initialUsers: UserAccount[] }) 
                       <Mail className="h-3 w-3" />
                       {user.email}
                     </div>
+                    {user.phone && (
+                      <div className="flex items-center gap-2 text-xs text-[#64748b]">
+                        <Phone className="h-3 w-3" />
+                        {user.phone}
+                      </div>
+                    )}
                     {user.last_login && (
                       <p className="text-xs text-[#94a3b8]">Last login: {new Date(user.last_login).toLocaleDateString()}</p>
                     )}
@@ -139,11 +155,48 @@ export function UsersManager({ initialUsers }: { initialUsers: UserAccount[] }) 
                   <Badge variant={user.active ? "default" : "secondary"} onClick={() => toggleActive(user.id)} className="cursor-pointer">
                     {user.active ? "Active" : "Inactive"}
                   </Badge>
-                  <button onClick={() => removeUser(user.id)} className="text-[#94a3b8] hover:text-red-600">
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label={expanded === user.id ? "Hide details" : "Show details"}
+                    onClick={() => setExpanded(expanded === user.id ? null : user.id)}
+                  >
+                    {expanded === user.id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </Button>
+                  <DeleteButton onDelete={() => removeUser(user.id)} label={user.name} />
                 </div>
               </CardContent>
+              {expanded === user.id && (
+                <div className="border-t border-[#166534]/15 bg-[#f8faf5] px-4 py-4 text-sm">
+                  <dl className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
+                    <div><dt className="text-xs text-[#64748b]">Full name</dt><dd className="font-medium text-[#0f172a]">{user.name}</dd></div>
+                    <div><dt className="text-xs text-[#64748b]">Role</dt><dd className="font-medium capitalize text-[#0f172a]">{user.role}</dd></div>
+                    <div>
+                      <dt className="text-xs text-[#64748b]">Email</dt>
+                      <dd><a href={`mailto:${user.email}`} className="font-medium text-[#166534] underline">{user.email}</a></dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs text-[#64748b]">Phone</dt>
+                      <dd>
+                        {user.phone ? (
+                          <a href={`tel:${user.phone.replace(/\s/g, "")}`} className="font-medium text-[#166534] underline">{user.phone}</a>
+                        ) : (
+                          <span className="text-[#94a3b8]">Not set</span>
+                        )}
+                      </dd>
+                    </div>
+                    <div><dt className="text-xs text-[#64748b]">Status</dt><dd className="font-medium text-[#0f172a]">{user.active ? "Active" : "Inactive"}</dd></div>
+                    <div>
+                      <dt className="text-xs text-[#64748b]">Added</dt>
+                      <dd className="font-medium text-[#0f172a]">{user.created_at ? new Date(user.created_at).toLocaleDateString() : "—"}</dd>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <dt className="text-xs text-[#64748b]">Last login</dt>
+                      <dd className="font-medium text-[#0f172a]">{user.last_login ? new Date(user.last_login).toLocaleString() : "Never signed in"}</dd>
+                    </div>
+                  </dl>
+                </div>
+              )}
             </Card>
           ))}
         </div>

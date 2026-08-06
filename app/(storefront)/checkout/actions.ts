@@ -2,6 +2,7 @@
 
 import { cookies, headers } from "next/headers";
 import { mapsLink, quoteDelivery, type Fulfilment, type LatLng } from "@/lib/delivery";
+import { getSiteContent } from "@/lib/site-content";
 import {
   CART_COOKIE,
   PENDING_ORDER_COOKIE,
@@ -108,7 +109,9 @@ export async function completeCheckout(input: CheckoutInput): Promise<CheckoutRe
 
   // The fee is derived from the coordinates here, so a tampered client cannot set its own price.
   const dropOff = wantsDelivery && validPoint(input.drop_off) ? input.drop_off : null;
-  const quote = quoteDelivery(dropOff);
+  // Priced server-side from the shop's saved rates, so the browser cannot set its own fee.
+  const tiers = (await getSiteContent()).deliveryTiers;
+  const quote = quoteDelivery(dropOff, tiers);
 
   const subtotal = items.reduce((sum, item) => sum + item.total, 0);
   const total = subtotal + quote.fee;

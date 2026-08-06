@@ -58,8 +58,9 @@ export function ProductsManager({
       !term || p.name.toLowerCase().includes(term) || (p.sku?.toLowerCase().includes(term) ?? false);
     if (!matchesTerm) return false;
 
+    // "both" belongs to the cash list and the Lipa Pole Pole list alike.
     const type = p.product_type || "sale";
-    if (typeFilter !== "all" && type !== typeFilter) return false;
+    if (typeFilter !== "all" && type !== typeFilter && type !== "both") return false;
 
     const onSite = p.visible_on_site !== false;
     const inPos = p.visible_in_pos !== false;
@@ -91,7 +92,16 @@ export function ProductsManager({
   };
 
   const [form, setForm] = useState(emptyForm);
+  const [imageUrl, setImageUrl] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  /** Pasting a URL only worked on Enter before, with no button to press. */
+  function addImageUrl() {
+    const value = imageUrl.trim();
+    if (!value) return;
+    setForm((prev) => ({ ...prev, images: [...prev.images, value] }));
+    setImageUrl("");
+  }
 
   function openCreate() {
     setSaveError(null);
@@ -136,7 +146,7 @@ export function ProductsManager({
       categories: form.categories,
       images: form.images,
       product_type: form.product_type,
-      rental_terms: form.product_type === "rental" ? form.rental_terms : undefined,
+      rental_terms: form.product_type === "sale" ? undefined : form.rental_terms,
       visible_on_site: form.visible_on_site,
       visible_in_pos: form.visible_in_pos,
       specs: form.specs.filter((row) => row.label.trim() && row.value.trim()),
@@ -338,8 +348,8 @@ export function ProductsManager({
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={p.product_type === "rental" ? "default" : "outline"} className="text-[10px]">
-                      {p.product_type === "rental" ? "Lipa Pole Pole" : "Sale"}
+                    <Badge variant={p.product_type === "sale" || !p.product_type ? "outline" : "default"} className="text-[10px]">
+                      {p.product_type === "both" ? "Sale + LPP" : p.product_type === "rental" ? "Lipa Pole Pole" : "Sale"}
                     </Badge>
                   </TableCell>
                   <TableCell>
@@ -466,11 +476,12 @@ export function ProductsManager({
                   onChange={(e) => setForm({ ...form, product_type: e.target.value })}
                   className="flex h-10 w-full rounded-md border border-[#166534]/30 bg-white px-3 py-2 text-sm"
                 >
-                  <option value="sale">Sale (one-time purchase)</option>
-                  <option value="rental">Lipa Pole Pole (rental / pay slowly)</option>
+                  <option value="sale">Sale only (one-time purchase)</option>
+                  <option value="rental">Lipa Pole Pole only (pay slowly)</option>
+                  <option value="both">Both — sale and Lipa Pole Pole</option>
                 </select>
               </div>
-              {form.product_type === "rental" && (
+              {(form.product_type === "rental" || form.product_type === "both") && (
                 <div className="grid gap-2">
                   <Label htmlFor="rental_terms">Rental terms</Label>
                   <Input id="rental_terms" value={form.rental_terms} onChange={(e) => setForm({ ...form, rental_terms: e.target.value })} placeholder="e.g. KES 500/day for 365 days" />
@@ -598,17 +609,18 @@ export function ProductsManager({
               <div className="flex gap-2">
                 <Input
                   placeholder="Paste image URL..."
+                  value={imageUrl}
+                  onChange={(e) => setImageUrl(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault();
-                      const value = (e.target as HTMLInputElement).value.trim();
-                      if (value) {
-                        setForm((prev) => ({ ...prev, images: [...prev.images, value] }));
-                        (e.target as HTMLInputElement).value = "";
-                      }
+                      addImageUrl();
                     }
                   }}
                 />
+                <Button type="button" variant="outline" onClick={addImageUrl} disabled={!imageUrl.trim()}>
+                  <Plus className="mr-1 h-3 w-3" /> Add
+                </Button>
               </div>
             </div>
           </div>

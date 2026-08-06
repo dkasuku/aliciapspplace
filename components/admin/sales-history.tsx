@@ -18,19 +18,30 @@ import {
 } from "@/components/ui/table";
 import type { Sale } from "@/lib/api/types";
 import { Pagination, usePagination } from "./pagination";
+import { DeleteButton } from "./delete-button";
 
 const money = (v: number) => `KES ${Number(v || 0).toLocaleString()}`;
 
 export function SalesHistory({ initialSales }: { initialSales: Sale[] }) {
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [sales, setSales] = useState(initialSales);
 
-  const paging = usePagination(initialSales, 10);
+  const paging = usePagination(sales, 10);
+
+  async function deleteSale(sale: Sale) {
+    const res = await fetch(`/api/admin/backend/api/sales/${sale.id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
+      throw new Error(data?.error || `Could not delete receipt ${sale.receipt_no} (HTTP ${res.status}).`);
+    }
+    setSales((prev) => prev.filter((s) => s.id !== sale.id));
+  }
 
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-[#0f172a]">Sales History</h2>
-        <p className="text-sm text-[#64748b]">{initialSales.length} total sales</p>
+        <p className="text-sm text-[#64748b]">{sales.length} total sales</p>
       </div>
 
       <Card>
@@ -69,6 +80,7 @@ export function SalesHistory({ initialSales }: { initialSales: Sale[] }) {
                       >
                         {expanded === sale.id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                       </Button>
+                      <DeleteButton onDelete={() => deleteSale(sale)} label={`receipt ${sale.receipt_no}`} />
                     </TableCell>
                   </TableRow>
                   {expanded === sale.id && (

@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DELIVERY_STAGES, STATUS_LABELS, type AdminDelivery, type DeliveryStatus } from "@/lib/tracking";
 import { Pagination, usePagination } from "./pagination";
+import { DeleteButton } from "./delete-button";
 
 const money = (value: number) => `KES ${Number(value || 0).toLocaleString()}`;
 
@@ -97,6 +98,15 @@ export function OrdersManager({ initialOrders }: { initialOrders: AdminDelivery[
     } finally {
       setBusyId(null);
     }
+  }
+
+  async function deleteOrder(order: AdminDelivery) {
+    const res = await fetch(`/api/admin/deliveries/${order.id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
+      throw new Error(data?.error || `Could not delete order ${order.order_ref} (HTTP ${res.status}).`);
+    }
+    setOrders((prev) => prev.filter((o) => o.id !== order.id));
   }
 
   const openCount = orders.filter((o) => o.status !== "delivered" && o.status !== "cancelled").length;
@@ -192,9 +202,12 @@ export function OrdersManager({ initialOrders }: { initialOrders: AdminDelivery[
                           </TableCell>
                           <TableCell className="text-xs text-[#64748b]">{when(order.created_at)}</TableCell>
                           <TableCell>
-                            <Button variant="ghost" size="sm" onClick={() => setExpanded(open ? null : order.id)}>
-                              {open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                            </Button>
+                            <span className="flex justify-end">
+                              <Button variant="ghost" size="sm" onClick={() => setExpanded(open ? null : order.id)}>
+                                {open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                              </Button>
+                              <DeleteButton onDelete={() => deleteOrder(order)} label={`order ${order.order_ref}`} />
+                            </span>
                           </TableCell>
                         </TableRow>
 

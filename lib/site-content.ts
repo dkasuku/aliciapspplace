@@ -11,6 +11,8 @@ export interface SiteContent {
   headerNav: { id: string; label: string; href: string; enabled: boolean }[];
   footer: { description: string; shopWithConfidence: string; phone: string; email: string };
   sectionTags: { id: string; label: string; heading: string; subheading: string; enabled: boolean }[];
+  /** Delivery pricing, editable from Admin -> Shipping. maxKm null = everything beyond. */
+  deliveryTiers?: { id: string; label: string; hint: string; fee: number; maxKm: number | null; note?: string }[];
   logoUrl?: string;
 }
 

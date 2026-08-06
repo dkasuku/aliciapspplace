@@ -381,7 +381,7 @@ export function POS({ initialProducts }: { initialProducts: Product[] }) {
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-3 xl:grid-cols-4">
           {paging.visible.map((p) => {
             const price = Number(p.sales_price || p.price);
-            const isRental = p.product_type === "rental";
+            const isRental = p.product_type === "rental" || p.product_type === "both";
             const outOfStock = p.stock === 0;
             return (
               <button

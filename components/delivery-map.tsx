@@ -37,6 +37,9 @@ export function DeliveryMap({
   const [ready, setReady] = useState(false);
   const [locating, setLocating] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [searching, setSearching] = useState(false);
+  const [results, setResults] = useState<Array<{ label: string; lat: number; lng: number }>>([]);
 
   // Draws (or moves) the drop-off pin and the line back to the shop.
   function place(point: LatLng, recenter = false) {
@@ -146,8 +149,78 @@ export function DeliveryMap({
     );
   }
 
+  /** Looks a place up by name so people who cannot share GPS can still order. */
+  async function search(event: React.FormEvent) {
+    event.preventDefault();
+    const term = query.trim();
+    if (!term) return;
+    setSearching(true);
+    setNotice(null);
+    setResults([]);
+    try {
+      const url = new URL("https://nominatim.openstreetmap.org/search");
+      url.searchParams.set("q", term);
+      url.searchParams.set("format", "jsonv2");
+      url.searchParams.set("limit", "6");
+      url.searchParams.set("countrycodes", "ke");
+      const response = await fetch(url, { headers: { Accept: "application/json" } });
+      const found = (await response.json()) as Array<{ display_name: string; lat: string; lon: string }>;
+      if (!found.length) {
+        setNotice(`Nothing found for “${term}”. Try a landmark, estate or town name.`);
+        return;
+      }
+      setResults(found.map((r) => ({ label: r.display_name, lat: Number(r.lat), lng: Number(r.lon) })));
+    } catch {
+      setNotice("Could not search right now. Tap your spot on the map instead.");
+    } finally {
+      setSearching(false);
+    }
+  }
+
+  function choose(result: { label: string; lat: number; lng: number }) {
+    const point = { lat: result.lat, lng: result.lng };
+    onChangeRef.current(point);
+    place(point, true);
+    setResults([]);
+    setQuery(result.label.split(",")[0]);
+  }
+
   return (
     <div>
+      <form onSubmit={search} className="mb-3 flex gap-2">
+        <div className="relative min-w-0 flex-1">
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search a place — estate, landmark or town"
+            aria-label="Search for your delivery location"
+            className="w-full border border-[#166534]/30 bg-white px-4 py-3 text-sm text-[#0f172a] focus:border-[#166534] focus:outline-none"
+          />
+          {results.length > 0 && (
+            <ul className="absolute z-[1000] mt-1 max-h-60 w-full overflow-y-auto border border-[#166534]/25 bg-white shadow-lg">
+              {results.map((result, index) => (
+                <li key={`${result.lat}-${result.lng}-${index}`}>
+                  <button
+                    type="button"
+                    onClick={() => choose(result)}
+                    className="block w-full px-4 py-2.5 text-left text-xs leading-5 text-[#0f172a] hover:bg-[#f0fdf4]"
+                  >
+                    {result.label}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <button
+          type="submit"
+          disabled={searching || !query.trim()}
+          className="shrink-0 bg-[#166534] px-5 text-[10px] font-bold uppercase tracking-wider text-white transition-colors hover:bg-[#14532d] disabled:opacity-50"
+        >
+          {searching ? "…" : "Search"}
+        </button>
+      </form>
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-xs text-[#0f172a]/60">Tap your delivery spot on the map, or drag the green pin.</p>
         <button

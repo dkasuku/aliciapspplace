@@ -4,7 +4,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useState } from "react";
 import { completeCheckout } from "@/app/(storefront)/checkout/actions";
-import { DELIVERY_TIERS, PICKUP_TIER, quoteDelivery, type Fulfilment, type LatLng } from "@/lib/delivery";
+import { PICKUP_TIER, quoteDelivery, resolveTiers, type DeliveryTier, type Fulfilment, type LatLng } from "@/lib/delivery";
 import { ORDER_WHATSAPP_DISPLAY, type OrderSummary } from "@/lib/whatsapp";
 import { OrderConfirmation } from "./order-confirmation";
 import { useCart } from "./cart-provider";
@@ -17,7 +17,8 @@ const DeliveryMap = dynamic(() => import("./delivery-map").then((mod) => mod.Del
 const num = (value: unknown) => Number(value || 0);
 const money = (value: number) => `KES ${num(value).toLocaleString()}`;
 
-export function Checkout() {
+export function Checkout({ tiers }: { tiers?: DeliveryTier[] | null }) {
+  const DELIVERY_TIERS = resolveTiers(tiers);
   const { cart, refresh } = useCart();
   const [contact, setContact] = useState({
     full_name: "",
@@ -34,7 +35,7 @@ export function Checkout() {
   const [placed, setPlaced] = useState<{ order: OrderSummary; warning?: string } | null>(null);
 
   const delivering = fulfilment === "delivery";
-  const quote = quoteDelivery(delivering ? dropOff : null);
+  const quote = quoteDelivery(delivering ? dropOff : null, tiers);
   const subtotal = num(cart.subtotal || cart.total);
   const total = subtotal + quote.fee;
   const needsPin = delivering && !dropOff;
@@ -217,7 +218,7 @@ export function Checkout() {
         </div>
 
         <p className="mt-4 text-center text-[11px] leading-relaxed text-[#0f172a]/50">
-          "We confirm every order on WhatsApp, then you pay on delivery or collection."
+          We confirm every order on WhatsApp, then you pay on delivery or collection.
         </p>
       </aside>
     </form>

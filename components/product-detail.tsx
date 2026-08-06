@@ -76,7 +76,7 @@ export function ProductDetail({ product, currency, relatedProducts = [] }: { pro
   const images = product.images?.length ? product.images : [];
   const inStock = (product.stock ?? 0) > 0;
 
-  const isRental = product.product_type === "rental";
+  const isRental = product.product_type === "rental" || product.product_type === "both";
 
   return (
     <main className="min-h-screen bg-[#f7f8f5] pt-6">

@@ -60,7 +60,10 @@ export function RentalsManager({ initialRentals, products }: { initialRentals: R
   const [paymentForRental, setPaymentForRental] = useState<RentalRecord | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const rentalProducts = useMemo(() => products.filter((p) => p.product_type === "rental"), [products]);
+  const rentalProducts = useMemo(
+    () => products.filter((p) => p.product_type === "rental" || p.product_type === "both"),
+    [products],
+  );
 
   const filtered = rentals.filter((r) => {
     const matchesSearch =

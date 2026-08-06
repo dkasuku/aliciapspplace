@@ -373,8 +373,14 @@ def list_products():
 
     product_type = request.args.get("product_type")
     if product_type and product_type != "all":
+        # "both" means the phone is sold outright and on Lipa Pole Pole, so it
+        # belongs to either list.
         if product_type == "sale":
-            query = query.filter(db.or_(Product.product_type == "sale", Product.product_type.is_(None)))
+            query = query.filter(
+                db.or_(Product.product_type == "sale", Product.product_type == "both", Product.product_type.is_(None))
+            )
+        elif product_type == "rental":
+            query = query.filter(db.or_(Product.product_type == "rental", Product.product_type == "both"))
         else:
             query = query.filter(Product.product_type == product_type)
 
@@ -456,10 +462,24 @@ def update_product(product_id):
 
 @app.delete("/api/products/<product_id>")
 def delete_product(product_id):
+    """
+    Deleting a product that has ever been sold or restocked used to fail with a
+    foreign key error. Stock movements are history of the product itself and go
+    with it; sale lines keep their recorded name and price and simply lose the
+    link, so past receipts and revenue stay intact.
+    """
     product = Product.query.get_or_404(product_id)
+
+    for movement in StockMovement.query.filter_by(product_id=product.id).all():
+        db.session.delete(movement)
+    for line in SaleItem.query.filter_by(product_id=product.id).all():
+        line.product_id = None
+    product.categories.clear()
+    db.session.flush()
+
     db.session.delete(product)
     db.session.commit()
-    return jsonify({"ok": True})
+    return jsonify({"ok": True, "deleted": product_id})
 
 
 # ── Inventory / Stock routes ─────────────────────────────────────────────────
@@ -608,6 +628,19 @@ def list_sales():
 def get_sale(sale_id):
     sale = Sale.query.get_or_404(sale_id)
     return jsonify(sale.to_dict())
+
+
+@app.delete("/api/sales/<sale_id>")
+def delete_sale(sale_id):
+    """
+    Removes a sale. Stock is deliberately not returned — a deletion here means
+    the record was entered wrongly, not that goods came back; use Returns for
+    that. Line items go with it via the cascade.
+    """
+    sale = Sale.query.get_or_404(sale_id)
+    db.session.delete(sale)
+    db.session.commit()
+    return jsonify({"ok": True, "deleted": sale_id})
 
 
 # ── Image uploads (Backblaze B2, S3-compatible) ──────────────────────────────
@@ -775,6 +808,14 @@ def list_deliveries():
         query = query.filter_by(status=status)
     deliveries = query.order_by(Delivery.created_at.desc()).limit(200).all()
     return jsonify([d.to_dict() for d in deliveries])
+
+
+@app.delete("/api/deliveries/<delivery_id>")
+def delete_delivery(delivery_id):
+    delivery = Delivery.query.get_or_404(delivery_id)
+    db.session.delete(delivery)
+    db.session.commit()
+    return jsonify({"ok": True, "deleted": delivery_id})
 
 
 @app.patch("/api/deliveries/<delivery_id>")
