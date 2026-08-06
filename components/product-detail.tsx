@@ -51,19 +51,11 @@ function getColorsForProduct(product: Product) {
   return null;
 }
 
-const STORAGE_OPTIONS = ["128GB", "256GB", "512GB"];
-
-function hasStorageOptions(product: Product) {
-  const cats = product.categories?.join(" ").toLowerCase() || "";
-  return cats.includes("smartphone") || cats.includes("phone") || cats.includes("tablet") || cats.includes("laptop");
-}
-
 export function ProductDetail({ product, currency, relatedProducts = [] }: { product: Product; currency: string; relatedProducts?: Product[] }) {
   const { update, loading } = useCart();
   const [quantity, setQuantity] = useState(1);
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedColor, setSelectedColor] = useState(0);
-  const [selectedStorage, setSelectedStorage] = useState(0);
 
   const price = Number(product.sales_price ?? product.price);
   const originalPrice = product.sales_price ? Number(product.price) : null;
@@ -72,7 +64,6 @@ export function ProductDetail({ product, currency, relatedProducts = [] }: { pro
   const discountPct = hasDiscount ? Math.round(((originalPrice - price) / originalPrice) * 100) : 0;
 
   const colors = getColorsForProduct(product);
-  const showStorage = hasStorageOptions(product);
   const images = product.images?.length ? product.images : [];
   const inStock = (product.stock ?? 0) > 0;
 
@@ -181,17 +172,6 @@ export function ProductDetail({ product, currency, relatedProducts = [] }: { pro
           )}
 
           {/* Storage variations */}
-          {showStorage && (
-            <div className="mt-6 border-t border-[#e2ece4] pt-6">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-[#0f172a]">Storage</h3>
-              <div className="mt-3 flex flex-wrap gap-3">
-                {STORAGE_OPTIONS.map((storage, idx) => (
-                  <button key={storage} type="button" onClick={() => setSelectedStorage(idx)} className={`rounded-xl border-2 px-5 py-2.5 text-sm font-bold transition ${selectedStorage === idx ? "border-[#147243] bg-[#dcfce7] text-[#147243]" : "border-[#dbe6dd] bg-white text-[#345140] hover:border-[#76c88c]"}`}>{storage}</button>
-                ))}
-              </div>
-            </div>
-          )}
-
           {/* Quantity + Add to bag */}
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <div className="flex border border-[#166534]/30 rounded-lg overflow-hidden">
