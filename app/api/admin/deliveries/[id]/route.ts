@@ -32,3 +32,28 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "The shop system is unreachable." }, { status: 503 });
   }
 }
+
+export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  if ((await cookies()).get("admin_auth")?.value !== "authenticated") {
+    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  }
+
+  const { id } = await params;
+
+  try {
+    const response = await fetch(`${API_URL}/api/deliveries/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      cache: "no-store",
+    });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+      return NextResponse.json(
+        { error: (payload as { error?: string } | null)?.error || "Could not delete the order." },
+        { status: response.status },
+      );
+    }
+    return NextResponse.json(payload ?? { ok: true });
+  } catch {
+    return NextResponse.json({ error: "The shop system is unreachable." }, { status: 503 });
+  }
+}
