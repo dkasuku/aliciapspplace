@@ -69,6 +69,8 @@ class Product(db.Model):
     # "sale" for outright purchase, "rental" for Lipa Pole Pole.
     product_type = db.Column(db.String(20), default="sale")
     rental_terms = db.Column(db.Text, nullable=True)
+    # Key features shown on the product page: JSON array of {label, value}.
+    specs = db.Column(db.Text, nullable=True)
     # Which channels the product appears in. Hidden from both = shop record only.
     visible_on_site = db.Column(db.Boolean, default=True)
     visible_in_pos = db.Column(db.Boolean, default=True)
@@ -99,6 +101,7 @@ class Product(db.Model):
             "low_stock_threshold": self.low_stock_threshold,
             "product_type": self.product_type or "sale",
             "rental_terms": self.rental_terms,
+            "specs": json.loads(self.specs) if self.specs else [],
             "visible_on_site": True if self.visible_on_site is None else self.visible_on_site,
             "visible_in_pos": True if self.visible_in_pos is None else self.visible_in_pos,
             "categories": [c.name for c in self.categories],
@@ -406,6 +409,7 @@ def create_product():
         low_stock_threshold=int(data.get("low_stock_threshold", 5)),
         product_type=data.get("product_type", "sale"),
         rental_terms=data.get("rental_terms"),
+        specs=json.dumps(data.get("specs", [])),
         visible_on_site=bool(data.get("visible_on_site", True)),
         visible_in_pos=bool(data.get("visible_in_pos", True)),
     )
@@ -436,6 +440,8 @@ def update_product(product_id):
     product.low_stock_threshold = int(data.get("low_stock_threshold", product.low_stock_threshold))
     product.product_type = data.get("product_type", product.product_type)
     product.rental_terms = data.get("rental_terms", product.rental_terms)
+    if "specs" in data:
+        product.specs = json.dumps(data.get("specs") or [])
     if "visible_on_site" in data:
         product.visible_on_site = bool(data["visible_on_site"])
     if "visible_in_pos" in data:
@@ -945,6 +951,7 @@ def run_migrations():
         "product": [
             ("product_type", "VARCHAR(20) DEFAULT 'sale'"),
             ("rental_terms", "TEXT"),
+            ("specs", "TEXT"),
             ("visible_on_site", "BOOLEAN DEFAULT TRUE"),
             ("visible_in_pos", "BOOLEAN DEFAULT TRUE"),
         ],

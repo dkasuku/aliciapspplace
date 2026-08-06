@@ -87,6 +87,7 @@ export function ProductsManager({
     rental_terms: "",
     visible_on_site: true,
     visible_in_pos: true,
+    specs: [] as Array<{ label: string; value: string }>,
   };
 
   const [form, setForm] = useState(emptyForm);
@@ -117,6 +118,7 @@ export function ProductsManager({
       rental_terms: product.rental_terms || "",
       visible_on_site: product.visible_on_site !== false,
       visible_in_pos: product.visible_in_pos !== false,
+      specs: product.specs || [],
     });
     setDialogOpen(true);
   }
@@ -137,6 +139,7 @@ export function ProductsManager({
       rental_terms: form.product_type === "rental" ? form.rental_terms : undefined,
       visible_on_site: form.visible_on_site,
       visible_in_pos: form.visible_in_pos,
+      specs: form.specs.filter((row) => row.label.trim() && row.value.trim()),
     };
 
     setSaveError(null);
@@ -474,6 +477,58 @@ export function ProductsManager({
                   <p className="text-xs text-[#94a3b8]">Shown on the product page under the Lipa Pole Pole badge.</p>
                 </div>
               )}
+            </div>
+
+            <div className="grid gap-2">
+              <Label>Key features</Label>
+              <p className="text-xs text-[#94a3b8]">
+                Shown as a bulleted spec list on the product page, e.g. RAM · 8GB.
+              </p>
+              <div className="space-y-2">
+                {form.specs.map((row, index) => (
+                  <div key={index} className="flex gap-2">
+                    <Input
+                      value={row.label}
+                      placeholder="Label (e.g. RAM)"
+                      className="max-w-[36%]"
+                      onChange={(e) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          specs: prev.specs.map((r, i) => (i === index ? { ...r, label: e.target.value } : r)),
+                        }))
+                      }
+                    />
+                    <Input
+                      value={row.value}
+                      placeholder="Value (e.g. 8GB)"
+                      onChange={(e) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          specs: prev.specs.map((r, i) => (i === index ? { ...r, value: e.target.value } : r)),
+                        }))
+                      }
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Remove feature"
+                      onClick={() => setForm((prev) => ({ ...prev, specs: prev.specs.filter((_, i) => i !== index) }))}
+                    >
+                      <X className="h-4 w-4 text-red-600" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-fit"
+                onClick={() => setForm((prev) => ({ ...prev, specs: [...prev.specs, { label: "", value: "" }] }))}
+              >
+                <Plus className="mr-1 h-3 w-3" /> Add feature
+              </Button>
             </div>
 
             <div className="grid gap-2">

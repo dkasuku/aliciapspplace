@@ -146,6 +146,23 @@ export function ProductDetail({ product, currency, relatedProducts = [] }: { pro
             )}
           </div>
 
+          {product.specs && product.specs.length > 0 && (
+            <div className="mt-8 border-t border-[#e2ece4] pt-6">
+              <h2 className="font-display text-xl font-black text-[#0f172a]">{product.name} Key Features</h2>
+              <ul className="mt-4 space-y-2.5">
+                {product.specs.map((spec, index) => (
+                  <li key={`${spec.label}-${index}`} className="flex gap-3 text-[15px] leading-6">
+                    <span aria-hidden className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#147243]" />
+                    <span className="min-w-0">
+                      <b className="font-bold text-[#0f172a]">{spec.label}:</b>{" "}
+                      <span className="text-[#0f172a]/70">{spec.value}</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {/* Color variations */}
           {colors && (
             <div className="mt-8 border-t border-[#e2ece4] pt-6">

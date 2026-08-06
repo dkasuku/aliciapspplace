@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" width="800" height="800" role="img" aria-label="oppo-reno15 rendering">
+  <defs>
+    <linearGradient id="back" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#354B63"/>
+      <stop offset="45%" stop-color="#354b63"/>
+      <stop offset="100%" stop-color="#233141"/>
+    </linearGradient>
+    <linearGradient id="screen" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#20242B"/>
+      <stop offset="55%" stop-color="#11141A"/>
+      <stop offset="100%" stop-color="#080A0D"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.22"/>
+      <stop offset="40%" stop-color="#FFFFFF" stop-opacity="0.04"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="glassA" cx="0.35" cy="0.3" r="0.8">
+      <stop offset="0%" stop-color="#3C4A63"/>
+      <stop offset="55%" stop-color="#141821"/>
+      <stop offset="100%" stop-color="#05060A"/>
+    </radialGradient>
+    <radialGradient id="glassB" cx="0.35" cy="0.3" r="0.8">
+      <stop offset="0%" stop-color="#3C4A63"/>
+      <stop offset="55%" stop-color="#141821"/>
+      <stop offset="100%" stop-color="#05060A"/>
+    </radialGradient>
+    <radialGradient id="glassC" cx="0.35" cy="0.3" r="0.8">
+      <stop offset="0%" stop-color="#3C4A63"/>
+      <stop offset="55%" stop-color="#141821"/>
+      <stop offset="100%" stop-color="#05060A"/>
+    </radialGradient>
+    <radialGradient id="glassS0" cx="0.35" cy="0.3" r="0.8">
+      <stop offset="0%" stop-color="#3C4A63"/>
+      <stop offset="55%" stop-color="#141821"/>
+      <stop offset="100%" stop-color="#05060A"/>
+    </radialGradient>
+    <radialGradient id="glassS1" cx="0.35" cy="0.3" r="0.8">
+      <stop offset="0%" stop-color="#3C4A63"/>
+      <stop offset="55%" stop-color="#141821"/>
+      <stop offset="100%" stop-color="#05060A"/>
+    </radialGradient>
+    <radialGradient id="glassS2" cx="0.35" cy="0.3" r="0.8">
+      <stop offset="0%" stop-color="#3C4A63"/>
+      <stop offset="55%" stop-color="#141821"/>
+      <stop offset="100%" stop-color="#05060A"/>
+    </radialGradient>
+    <radialGradient id="glassS3" cx="0.35" cy="0.3" r="0.8">
+      <stop offset="0%" stop-color="#3C4A63"/>
+      <stop offset="55%" stop-color="#141821"/>
+      <stop offset="100%" stop-color="#05060A"/>
+    </radialGradient>
+    <filter id="drop" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="16" stdDeviation="22" flood-color="#0F172A" flood-opacity="0.20"/>
+    </filter>
+  </defs>
+
+  <!-- Back view, angled behind -->
+  <g transform="translate(66 118) rotate(-8 140 280)" filter="url(#drop)">
+    <rect x="0" y="0" width="280" height="560" rx="46" fill="url(#back)" stroke="#1b2632" stroke-width="3"/>
+    <rect x="10" y="10" width="260" height="540" rx="38" fill="none" stroke="#FFFFFF" stroke-opacity="0.14" stroke-width="2"/>
+    <g transform="translate(0 0) scale(0.78)">
+      <rect x="96" y="118" width="172" height="172" rx="46" fill="#2b3e51" stroke="#22303f" stroke-width="2"/>
+      
+      <circle cx="148" cy="170" r="33" fill="#15161A"/>
+      <circle cx="148" cy="170" r="23.759999999999998" fill="url(#glassA)"/>
+      <circle cx="148" cy="170" r="11.22" fill="#0B0C0F"/>
+      <circle cx="139.42" cy="160.76" r="5.28" fill="#FFFFFF" opacity="0.55"/>
+      <circle cx="216" cy="170" r="33" fill="#15161A"/>
+      <circle cx="216" cy="170" r="23.759999999999998" fill="url(#glassB)"/>
+      <circle cx="216" cy="170" r="11.22" fill="#0B0C0F"/>
+      <circle cx="207.42" cy="160.76" r="5.28" fill="#FFFFFF" opacity="0.55"/>
+      <circle cx="148" cy="238" r="33" fill="#15161A"/>
+      <circle cx="148" cy="238" r="23.759999999999998" fill="url(#glassC)"/>
+      <circle cx="148" cy="238" r="11.22" fill="#0B0C0F"/>
+      <circle cx="139.42" cy="228.76" r="5.28" fill="#FFFFFF" opacity="0.55"/>
+      <circle cx="216" cy="238" r="14" fill="#F4E6C8"/>
+      <circle cx="216" cy="238" r="7" fill="#FFF8E6"/></g>
+    <rect x="0" y="0" width="280" height="560" rx="46" fill="url(#sheen)"/>
+  </g>
+
+  <!-- Front view -->
+  <g transform="translate(392 96) rotate(5 154 304)" filter="url(#drop)">
+    <rect x="0" y="0" width="308" height="608" rx="50" fill="url(#back)" stroke="#1b2632" stroke-width="3"/>
+    <rect x="13" y="13" width="282" height="582" rx="40" fill="url(#screen)"/>
+    <circle cx="154" cy="46" r="13" fill="#0A0B0E"/>
+    <circle cx="154" cy="46" r="6" fill="#141A26"/>
+    <rect x="13" y="13" width="282" height="582" rx="40" fill="url(#sheen)"/>
+    <rect x="120" y="566" width="68" height="6" rx="3" fill="#FFFFFF" opacity="0.5"/>
+  </g>
+</svg>

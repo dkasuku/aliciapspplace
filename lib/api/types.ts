@@ -15,6 +15,8 @@ export interface Product {
   categories?: string[];
   product_type?: string;
   rental_terms?: string;
+  /** Key features shown on the product page, in display order. */
+  specs?: Array<{ label: string; value: string }>;
   /** Channel visibility. Absent means visible, for records written before the columns existed. */
   visible_on_site?: boolean;
   visible_in_pos?: boolean;

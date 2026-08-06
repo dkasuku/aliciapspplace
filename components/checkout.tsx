@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { completeCheckout } from "@/app/(storefront)/checkout/actions";
 import { DELIVERY_TIERS, PICKUP_TIER, quoteDelivery, type Fulfilment, type LatLng } from "@/lib/delivery";
 import { ORDER_WHATSAPP_DISPLAY, type OrderSummary } from "@/lib/whatsapp";
@@ -29,25 +29,9 @@ export function Checkout() {
   });
   const [fulfilment, setFulfilment] = useState<Fulfilment>("delivery");
   const [dropOff, setDropOff] = useState<LatLng | null>(null);
-  const [onlineEnabled, setOnlineEnabled] = useState<boolean | null>(null);
-  const [busy, setBusy] = useState<"later" | "now" | null>(null);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [placed, setPlaced] = useState<{ order: OrderSummary; warning?: string } | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    void fetch("/api/payments/config")
-      .then((response) => response.json())
-      .then((payload: { online_payment_enabled?: boolean }) => {
-        if (active) setOnlineEnabled(Boolean(payload.online_payment_enabled));
-      })
-      .catch(() => {
-        if (active) setOnlineEnabled(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
 
   const delivering = fulfilment === "delivery";
   const quote = quoteDelivery(delivering ? dropOff : null);
@@ -57,15 +41,15 @@ export function Checkout() {
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const submitter = (event.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
-    const choice: "later" | "now" = submitter?.value === "now" ? "now" : "later";
+    // Every order is confirmed on WhatsApp; there is no online payment step.
+    const choice = "later" as const;
 
     if (needsPin) {
       setError("Mark your delivery spot on the map first — that is how we work out the fee.");
       return;
     }
 
-    setBusy(choice);
+    setBusy(true);
     setError(null);
     try {
       const result = await completeCheckout({
@@ -90,7 +74,7 @@ export function Checkout() {
     } catch {
       setError("The order could not be sent. Check your connection and try again.");
     } finally {
-      setBusy(null);
+      setBusy(false);
     }
   }
 
@@ -221,31 +205,19 @@ export function Checkout() {
             type="submit"
             name="choice"
             value="later"
-            disabled={busy !== null || !cart.items?.length}
+            disabled={busy || !cart.items?.length}
             className="flex w-full items-center justify-center gap-2 bg-[#25D366] px-5 py-5 text-xs font-black uppercase tracking-[0.16em] text-white shadow-md transition-colors hover:bg-[#1da851] disabled:opacity-40"
           >
             <svg viewBox="0 0 24 24" aria-hidden className="h-4 w-4 fill-current">
               <path d="M17.47 14.38c-.3-.15-1.75-.86-2.02-.96-.27-.1-.47-.15-.67.15-.2.3-.77.96-.94 1.16-.17.2-.35.22-.64.07-.3-.15-1.25-.46-2.38-1.47-.88-.78-1.47-1.75-1.65-2.05-.17-.3-.02-.46.13-.6.13-.14.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.08-.15-.67-1.6-.92-2.2-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48s1.06 2.88 1.21 3.08c.15.2 2.1 3.2 5.08 4.49.71.3 1.26.49 1.69.63.71.22 1.36.19 1.87.12.57-.09 1.75-.72 2-1.41.25-.7.25-1.29.17-1.42-.07-.13-.27-.2-.57-.35M12.05 21.8h-.02a9.8 9.8 0 0 1-4.99-1.37l-.36-.21-3.71.97.99-3.62-.23-.37a9.8 9.8 0 0 1-1.5-5.23c0-5.4 4.4-9.8 9.82-9.8 2.62 0 5.08 1.03 6.94 2.88a9.74 9.74 0 0 1 2.87 6.93c0 5.4-4.4 9.8-9.81 9.8m8.35-18.15A11.7 11.7 0 0 0 12.05 0C5.6 0 .35 5.24.35 11.68c0 2.06.54 4.07 1.56 5.85L.25 24l6.62-1.73a11.68 11.68 0 0 0 5.18 1.24h.01c6.44 0 11.69-5.24 11.69-11.68a11.6 11.6 0 0 0-3.35-8.18" />
             </svg>
-            {busy === "later" ? "Sending…" : "Send on WhatsApp · pay later"}
+            {busy ? "Sending…" : "Send order on WhatsApp"}
           </button>
 
-          <button
-            type="submit"
-            name="choice"
-            value="now"
-            disabled={busy !== null || !cart.items?.length || onlineEnabled === false}
-            title={onlineEnabled === false ? "Online payment is not switched on yet." : undefined}
-            className="w-full bg-[#166534] px-5 py-5 text-xs font-black uppercase tracking-[0.16em] text-white shadow-md transition-colors hover:bg-[#14532d] disabled:opacity-40"
-          >
-            {busy === "now" ? "Opening payment…" : `Pay ${money(total)} now`}
-          </button>
         </div>
 
         <p className="mt-4 text-center text-[11px] leading-relaxed text-[#0f172a]/50">
-          {onlineEnabled === false
-            ? "Online payment is coming soon. Send your order on WhatsApp and pay on delivery."
-            : "Pay now with card or M-Pesa, or send the order first and pay when it arrives."}
+          "We confirm every order on WhatsApp, then you pay on delivery or collection."
         </p>
       </aside>
     </form>
