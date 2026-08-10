@@ -82,14 +82,24 @@ function specsFor(p) {
 
 const categoriesFor = (p) => (p.brand === "Apple" || p.brand === "Samsung" ? [p.brand, "Smartphones"] : [p.brand, "Smartphones"]);
 
-async function api(pathname, method = "GET", body) {
-  const res = await fetch(`${API_URL}${pathname}`, {
-    method,
-    headers: body ? { "Content-Type": "application/json" } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  if (!res.ok) throw new Error(`${method} ${pathname} -> HTTP ${res.status}`);
-  return res.json();
+/** Managed Postgres drops the odd connection; retry rather than abort a long run. */
+async function api(pathname, method = "GET", body, tries = 5) {
+  let last;
+  for (let attempt = 0; attempt < tries; attempt += 1) {
+    try {
+      const res = await fetch(`${API_URL}${pathname}`, {
+        method,
+        headers: body ? { "Content-Type": "application/json" } : undefined,
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      if (!res.ok) throw new Error(`${method} ${pathname} -> HTTP ${res.status}`);
+      return await res.json();
+    } catch (error) {
+      last = error;
+      await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
+    }
+  }
+  throw last;
 }
 
 async function main() {
