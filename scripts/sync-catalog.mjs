@@ -18,6 +18,7 @@ const DRY_RUN = process.argv.includes("--dry");
 const DEFAULT_STOCK = 5;
 
 const { phones } = JSON.parse(fs.readFileSync(path.join(process.cwd(), "scripts", "catalog.json"), "utf8"));
+const { models: SPECS } = JSON.parse(fs.readFileSync(path.join(process.cwd(), "scripts", "phone-specs.json"), "utf8"));
 
 /** Categories whose products are phones, and so subject to this list. */
 const PHONE_CATEGORIES = new Set(["Smartphones", "Samsung", "Apple", "Tecno", "Infinix", "Vivo", "Xiaomi", "Oppo"]);
@@ -27,33 +28,11 @@ const PHONE_CATEGORIES = new Set(["Smartphones", "Samsung", "Apple", "Tecno", "I
  */
 const NOT_PHONE_CATEGORIES = new Set(["Tablets", "Audio", "Gaming", "Mobile Accessories", "Content Creator Kit"]);
 
-/**
- * Specs we can state with confidence. Anything not listed here gets only the
- * facts the price list itself carries — inventing a chipset or battery figure
- * for a phone someone is about to pay for is not acceptable.
- */
-const KNOWN = {
-  "iPhone 11": { Display: '6.1-inch Liquid Retina HD LCD', Chipset: "Apple A13 Bionic", Cameras: "12MP dual rear; 12MP TrueDepth front", Security: "Face ID facial recognition" },
-  "iPhone 11 Pro Max": { Display: '6.5-inch Super Retina XDR OLED', Chipset: "Apple A13 Bionic", Cameras: "12MP triple rear; 12MP TrueDepth front", Security: "Face ID facial recognition" },
-  "iPhone 12": { Display: '6.1-inch Super Retina XDR OLED', Chipset: "Apple A14 Bionic", Cameras: "12MP dual rear; 12MP TrueDepth front", Security: "Face ID facial recognition" },
-  "iPhone 12 Pro": { Display: '6.1-inch Super Retina XDR OLED', Chipset: "Apple A14 Bionic", Cameras: "12MP triple rear + LiDAR; 12MP front", Security: "Face ID facial recognition" },
-  "iPhone 12 Pro Max": { Display: '6.7-inch Super Retina XDR OLED', Chipset: "Apple A14 Bionic", Cameras: "12MP triple rear + LiDAR; 12MP front", Security: "Face ID facial recognition" },
-  "iPhone 13": { Display: '6.1-inch Super Retina XDR OLED', Chipset: "Apple A15 Bionic", Cameras: "12MP dual rear; 12MP TrueDepth front", Security: "Face ID facial recognition" },
-  "iPhone 13 Pro": { Display: '6.1-inch Super Retina XDR OLED, 120Hz ProMotion', Chipset: "Apple A15 Bionic", Cameras: "12MP triple rear + LiDAR; 12MP front", Security: "Face ID facial recognition" },
-  "iPhone 13 Pro Max": { Display: '6.7-inch Super Retina XDR OLED, 120Hz ProMotion', Chipset: "Apple A15 Bionic", Cameras: "12MP triple rear + LiDAR; 12MP front", Security: "Face ID facial recognition" },
-  "iPhone 14": { Display: '6.1-inch Super Retina XDR OLED', Chipset: "Apple A15 Bionic", Cameras: "12MP dual rear; 12MP TrueDepth front", Security: "Face ID facial recognition" },
-  "iPhone 14 Plus": { Display: '6.7-inch Super Retina XDR OLED', Chipset: "Apple A15 Bionic", Cameras: "12MP dual rear; 12MP TrueDepth front", Security: "Face ID facial recognition" },
-  "iPhone 14 Pro": { Display: '6.1-inch Super Retina XDR OLED, 120Hz ProMotion', Chipset: "Apple A16 Bionic", Cameras: "48MP main + ultra-wide + telephoto; 12MP front", Security: "Face ID facial recognition" },
-  "iPhone 14 Pro Max": { Display: '6.7-inch Super Retina XDR OLED, 120Hz ProMotion', Chipset: "Apple A16 Bionic", Cameras: "48MP main + ultra-wide + telephoto; 12MP front", Security: "Face ID facial recognition" },
-  "iPhone 15": { Display: '6.1-inch Super Retina XDR OLED, Dynamic Island', Chipset: "Apple A16 Bionic", Cameras: "48MP main + ultra-wide; 12MP front", Security: "Face ID facial recognition", Connectivity: "5G, Wi-Fi 6, USB-C" },
-  "iPhone 15 Plus": { Display: '6.7-inch Super Retina XDR OLED, Dynamic Island', Chipset: "Apple A16 Bionic", Cameras: "48MP main + ultra-wide; 12MP front", Security: "Face ID facial recognition", Connectivity: "5G, Wi-Fi 6, USB-C" },
-  "iPhone 15 Pro": { Display: '6.1-inch Super Retina XDR OLED, 120Hz ProMotion', Chipset: "Apple A17 Pro", Build: "Titanium frame", Cameras: "48MP main + ultra-wide + telephoto; 12MP front", Security: "Face ID facial recognition", Connectivity: "5G, Wi-Fi 6E, USB-C" },
-  "iPhone 15 Pro Max": { Display: '6.7-inch Super Retina XDR OLED, 120Hz ProMotion', Chipset: "Apple A17 Pro", Build: "Titanium frame", Cameras: "48MP main + ultra-wide + 5x telephoto; 12MP front", Security: "Face ID facial recognition", Connectivity: "5G, Wi-Fi 6E, USB-C" },
-  "iPhone 16 Pro Max": { Display: '6.9-inch Super Retina XDR OLED, 120Hz ProMotion', Chipset: "Apple A18 Pro", Build: "Titanium frame", Cameras: "48MP main + ultra-wide + 5x telephoto; 12MP front", Security: "Face ID facial recognition", Connectivity: "5G, Wi-Fi 7, USB-C" },
-  "iPhone 17 Pro Max": { Display: '6.9-inch Super Retina XDR OLED, 120Hz ProMotion', Chipset: "Apple A19 Pro", Build: "Titanium frame", Cameras: "48MP main + ultra-wide + telephoto; 18MP front", Security: "Face ID facial recognition", Connectivity: "5G, Wi-Fi 7, USB-C" },
-  "Galaxy S25 Ultra": { Display: '6.9-inch Dynamic AMOLED 2X, 120Hz', Chipset: "Snapdragon 8 Elite", Build: "Titanium frame, Gorilla Armor glass", Cameras: "200MP main + ultra-wide + 2 telephoto; 12MP front", Security: "Ultrasonic fingerprint + face unlock", Extras: "Built-in S Pen" },
-  "Galaxy S26 Ultra": { Display: '6.9-inch Dynamic AMOLED 2X, 120Hz', Build: "Titanium frame", Cameras: "200MP main + ultra-wide + telephoto; high-res front", Security: "Ultrasonic fingerprint + face unlock", Extras: "Built-in S Pen" },
-};
+/** Every phone shows the same ten rows, in this order. */
+const SPEC_ORDER = [
+  "RAM", "Internal Storage", "Display", "OS", "Chipset",
+  "Cameras", "Network", "Connectivity", "Battery", "Colors",
+];
 
 const OS_BY_BRAND = {
   Apple: "iOS",
@@ -62,7 +41,6 @@ const OS_BY_BRAND = {
   Infinix: "Android (XOS)",
   Vivo: "Android (Funtouch OS)",
   Xiaomi: "Android (HyperOS)",
-  Oppo: "Android (ColorOS)",
 };
 
 const nameFor = (p) => {
@@ -76,24 +54,30 @@ const skuFor = (p) => {
   return `${part(p.brand).slice(0, 3)}-${part(p.model)}-${p.ram ? `${p.ram}-` : ""}${p.storage}`;
 };
 
-/** Ordered so the product page reads like a spec sheet. */
-function specsFor(p) {
-  const known = KNOWN[p.model] || {};
-  const rows = [];
-  const push = (label, value) => value && rows.push({ label, value: String(value) });
+/** Key for phone-specs.json — Apple models are stored without the brand prefix. */
+const specKey = (p) => (p.brand === "Apple" ? p.model : `${p.brand} ${p.model}`);
 
-  push("RAM", p.ram ? `${p.ram}GB` : known.RAM);
-  push("Internal Storage", `${p.storage}GB`);
-  push("Display", known.Display);
-  push("Build", known.Build);
-  push("OS", known.OS || OS_BY_BRAND[p.brand]);
-  push("Chipset", known.Chipset);
-  push("Connectivity", known.Connectivity || (p.network === "5G" ? "5G, Wi-Fi, Bluetooth, GPS" : "4G LTE, Wi-Fi, Bluetooth, GPS"));
-  push("Cameras", known.Cameras);
-  push("Battery", known.Battery);
-  push("Security", known.Security);
-  push("Extras", known.Extras);
-  return rows;
+/**
+ * Builds the full ten-row sheet. RAM and storage come from the price list so
+ * each variant is right; the rest is the per-model sheet. Nothing is left out,
+ * so every phone reads the same way on the site.
+ */
+function specsFor(p) {
+  const sheet = SPECS[specKey(p)] || {};
+  const values = {
+    RAM: p.ram ? `${p.ram}GB` : sheet.RAM || "See product description",
+    "Internal Storage": `${p.storage}GB`,
+    Display: sheet.Display,
+    OS: sheet.OS || OS_BY_BRAND[p.brand],
+    Chipset: sheet.Chipset,
+    Cameras: sheet.Cameras,
+    Network: sheet.Network || (p.network === "5G" ? "5G" : "4G LTE"),
+    Connectivity: sheet.Connectivity || "Wi-Fi, Bluetooth, GPS",
+    Battery: sheet.Battery,
+    Colors: sheet.Colors,
+  };
+
+  return SPEC_ORDER.filter((label) => values[label]).map((label) => ({ label, value: String(values[label]) }));
 }
 
 const categoriesFor = (p) => (p.brand === "Apple" || p.brand === "Samsung" ? [p.brand, "Smartphones"] : [p.brand, "Smartphones"]);
@@ -146,8 +130,11 @@ async function main() {
     }
 
     const priceMoved = Number(current.price) !== Number(phone.price);
-    const needsSpecs = !current.specs || current.specs.length === 0;
-    if (priceMoved || needsSpecs || current.visible_on_site !== onSite) {
+    // Compare the whole sheet, not just "has any specs" — otherwise a phone
+    // that already had a partial list never picks up the added rows.
+    const wanted = specsFor(phone);
+    const specsChanged = JSON.stringify(current.specs || []) !== JSON.stringify(wanted);
+    if (priceMoved || specsChanged || current.visible_on_site !== onSite) {
       if (!DRY_RUN) {
         await api(`/api/products/${current.id}`, "PUT", {
           ...payload,
@@ -158,7 +145,7 @@ async function main() {
         });
       }
       console.log(
-        `  ~ ${name.padEnd(42)}${priceMoved ? ` price ${Number(current.price).toLocaleString()} -> ${phone.price.toLocaleString()}` : ""}${needsSpecs ? " +specs" : ""}${phone.hold ? "  [HELD OFF SITE]" : ""}`,
+        `  ~ ${name.padEnd(42)}${priceMoved ? ` price ${Number(current.price).toLocaleString()} -> ${phone.price.toLocaleString()}` : ""}${specsChanged ? ` specs->${wanted.length} rows` : ""}${phone.hold ? "  [HELD OFF SITE]" : ""}`,
       );
       updated += 1;
     }
