@@ -45,7 +45,6 @@
       "Battery": "5200mAh, 45W fast charging",
       "Colors": "Black, Green, Gold"
     },
-
     "Infinix Smart 20": {
       "verified": false,
       "Display": "6.7 inches, HD+ IPS LCD, 90Hz",
@@ -134,7 +133,6 @@
       "Battery": "5500mAh, 90W fast charging",
       "Colors": "Blade White, Dark Flare, Cyber Green"
     },
-
     "Samsung Galaxy A06": {
       "verified": true,
       "Display": "6.7 inches, HD+ PLS LCD",
@@ -234,7 +232,6 @@
       "Battery": "5000mAh, 60W fast charging",
       "Colors": "Titanium Black, Titanium Silver, Titanium Blue"
     },
-
     "iPhone 11": {
       "verified": true,
       "Display": "6.1 inches, Liquid Retina HD IPS LCD",
@@ -433,7 +430,6 @@
       "Battery": "5000mAh class, fast charging, MagSafe wireless",
       "Colors": "Deep Blue, Silver, Cosmic Orange"
     },
-
     "Vivo Y05": {
       "verified": false,
       "Display": "6.6 inches, HD+ IPS LCD, 90Hz",
@@ -511,7 +507,6 @@
       "Battery": "6500mAh, 90W fast charging",
       "Colors": "Titanium Grey, Sunset Gold, Emerald Green"
     },
-
     "Xiaomi Redmi A7": {
       "verified": false,
       "Display": "6.7 inches, HD+ IPS LCD, 120Hz",
@@ -588,6 +583,72 @@
       "Connectivity": "Bluetooth 5.4, Wi-Fi 6, GPS, NFC, USB-C",
       "Battery": "6500mAh, 100W fast charging",
       "Colors": "Midnight Black, Frost White, Lavender Purple"
+    },
+    "Oppo A6X": {
+      "verified": false,
+      "Display": "6.7 inches, HD+ IPS LCD, 120Hz",
+      "OS": "Android (ColorOS)",
+      "Chipset": "MediaTek Dimensity 6300",
+      "Cameras": "8 MP selfie; 32 MP primary camera",
+      "Network": "5G",
+      "Connectivity": "Bluetooth 5.3, Wi-Fi, GPS, USB-C",
+      "Battery": "6000mAh, 45W fast charging",
+      "Colors": "Midnight Blue, Sky Blue"
+    },
+    "Oppo A6": {
+      "verified": false,
+      "Display": "6.7 inches, FHD+ AMOLED, 120Hz",
+      "OS": "Android (ColorOS)",
+      "Chipset": "Qualcomm Snapdragon 6 Gen 1",
+      "Cameras": "16 MP selfie; 50 MP primary camera",
+      "Network": "5G",
+      "Connectivity": "Bluetooth 5.4, Wi-Fi, GPS, NFC, USB-C",
+      "Battery": "6500mAh, 45W fast charging",
+      "Colors": "Titanium Grey, Forest Green"
+    },
+    "Oppo A6 Pro 4G": {
+      "verified": false,
+      "Display": "6.7 inches, FHD+ AMOLED, 120Hz",
+      "OS": "Android (ColorOS)",
+      "Chipset": "MediaTek Helio G100",
+      "Cameras": "16 MP selfie; 50 MP primary camera",
+      "Network": "4G LTE",
+      "Connectivity": "Bluetooth 5.4, Wi-Fi, GPS, NFC, USB-C",
+      "Battery": "6500mAh, 45W fast charging",
+      "Colors": "Titanium Grey, Forest Green"
+    },
+    "Oppo Reno15 F 5G": {
+      "verified": false,
+      "Display": "6.7 inches, FHD+ AMOLED, 120Hz",
+      "OS": "Android (ColorOS)",
+      "Chipset": "Qualcomm Snapdragon 6 Gen 1",
+      "Cameras": "32 MP selfie; 50 MP primary camera with OIS",
+      "Network": "5G",
+      "Connectivity": "Bluetooth 5.4, Wi-Fi 6, GPS, NFC, USB-C",
+      "Battery": "5800mAh, 45W fast charging",
+      "Colors": "Midnight Blue, Coral Purple"
+    },
+    "Oppo Reno15 5G": {
+      "verified": false,
+      "Display": "6.59 inches, 1.5K AMOLED, 120Hz",
+      "OS": "Android (ColorOS)",
+      "Chipset": "MediaTek Dimensity 8350",
+      "Cameras": "50 MP selfie; 50 MP primary camera with OIS and telephoto",
+      "Network": "5G",
+      "Connectivity": "Bluetooth 5.4, Wi-Fi 6, GPS, NFC, USB-C",
+      "Battery": "6000mAh, 80W fast charging",
+      "Colors": "Mocha Brown, Star Grey, Butterfly Purple"
+    },
+    "Oppo Reno15 Pro 5G": {
+      "verified": false,
+      "Display": "6.78 inches, 1.5K AMOLED, 120Hz",
+      "OS": "Android (ColorOS)",
+      "Chipset": "MediaTek Dimensity 8450",
+      "Cameras": "50 MP selfie; 50 MP primary camera with OIS, ultra-wide and 3x telephoto",
+      "Network": "5G",
+      "Connectivity": "Bluetooth 5.4, Wi-Fi 7, GPS, NFC, USB-C",
+      "Battery": "6200mAh, 80W fast charging",
+      "Colors": "Mocha Brown, Star Grey, Butterfly Purple"
     }
   }
 }

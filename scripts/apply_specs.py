@@ -98,6 +98,50 @@ def main():
             print(f"  {name:<44} {len(current)} -> {len(wanted)} rows")
             updated += 1
 
+        # Phones still in the catalogue but off the price list — Oppo, for
+        # instance — should not be left with a half-empty sheet while they are
+        # visible. Match them by the longest model name that prefixes theirs.
+        listed = {name_for(x).lower() for x in phones}
+        keys = sorted(sheets, key=len, reverse=True)
+        extra = 0
+        for key_lower, product in products.items():
+            if key_lower in listed:
+                continue
+            match = next((k for k in keys if key_lower.startswith(k.lower() + " ")), None)
+            if match is None:
+                continue
+            sheet = sheets[match]
+            tail = product.name[len(match):].strip()
+            ram = None
+            storage = None
+            if "+" in tail:
+                left, right = tail.split("+", 1)
+                ram = left.strip().rstrip("GB").strip()
+                storage = right.strip().rstrip("GB").strip()
+            else:
+                storage = tail.rstrip("GB").strip()
+
+            values = {
+                "RAM": f"{ram}GB" if ram else sheet.get("RAM"),
+                "Internal Storage": f"{storage}GB" if storage else None,
+                "Display": sheet.get("Display"),
+                "OS": sheet.get("OS"),
+                "Chipset": sheet.get("Chipset"),
+                "Cameras": sheet.get("Cameras"),
+                "Network": sheet.get("Network"),
+                "Connectivity": sheet.get("Connectivity"),
+                "Battery": sheet.get("Battery"),
+                "Colors": sheet.get("Colors"),
+            }
+            wanted = [{"label": k, "value": str(values[k])} for k in SPEC_ORDER if values.get(k)]
+            current = json.loads(product.specs) if product.specs else []
+            if current == wanted:
+                continue
+            if not DRY:
+                product.specs = json.dumps(wanted)
+            print(f"  {product.name:<44} {len(current)} -> {len(wanted)} rows  (off-list)")
+            extra += 1
+
         if not DRY:
             db.session.commit()
 
