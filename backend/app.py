@@ -12,7 +12,22 @@ load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
-app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "postgresql://localhost:5432/alicia_phone_place")
+
+
+def database_url():
+    """
+    Names the driver explicitly. SQLAlchemy 2.1 switched the default for a bare
+    postgresql:// URL from psycopg2 (which we install) to psycopg 3 (which we
+    don't), and the backend crashed on start with "No module named 'psycopg'".
+    """
+    url = os.environ.get("DATABASE_URL", "postgresql://localhost:5432/alicia_phone_place")
+    for prefix in ("postgres://", "postgresql://"):
+        if url.startswith(prefix):
+            return "postgresql+psycopg2://" + url[len(prefix):]
+    return url
+
+
+app.config["SQLALCHEMY_DATABASE_URI"] = database_url()
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 # Managed Postgres drops idle connections, which otherwise surface as a 500 on
 # the first request after a quiet spell. Test the connection before handing it
@@ -268,7 +283,9 @@ class Shop(db.Model):
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
-    def to_dict(self):
+    def to_dict(self, product_count=None):
+        if product_count is None:
+            product_count = Product.query.filter_by(shop_id=self.id).count()
         return {
             "id": self.id,
             "name": self.name,
@@ -276,7 +293,7 @@ class Shop(db.Model):
             "phone": self.phone,
             "is_main": bool(self.is_main),
             "is_active": self.is_active is not False,
-            "product_count": Product.query.filter_by(shop_id=self.id).count(),
+            "product_count": product_count,
         }
 
 
@@ -1432,7 +1449,11 @@ def delete_user(user_id):
 def list_shops():
     main_shop()
     shops = Shop.query.order_by(Shop.is_main.desc(), Shop.created_at).all()
-    return jsonify([s.to_dict() for s in shops])
+    # One grouped count instead of a query per shop; this runs on every admin page.
+    counts = dict(
+        db.session.query(Product.shop_id, db.func.count(Product.id)).group_by(Product.shop_id).all()
+    )
+    return jsonify([s.to_dict(counts.get(s.id, 0)) for s in shops])
 
 
 @app.post("/api/shops")

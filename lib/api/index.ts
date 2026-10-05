@@ -37,6 +37,8 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       ...options.headers,
     },
     cache: "no-store",
+    // A stalled backend shouldn't freeze the page; fail fast and show what we have.
+    signal: options.signal ?? AbortSignal.timeout(10_000),
   });
   const contentType = res.headers.get("content-type") || "";
   const payload = contentType.includes("application/json") ? await res.json() : await res.text();
