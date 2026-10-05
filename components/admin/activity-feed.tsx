@@ -123,7 +123,7 @@ export function ActivityFeed({
               <Card key={`${row.user_id}-${row.shop_id}`}>
                 <CardContent className="p-4">
                   <p className="font-bold text-[#0f172a]">{row.name}</p>
-                  <p className="text-xs text-[#64748b]">{shopName.get(row.shop_id || "") || "Main Shop"}</p>
+                  <p className="text-xs text-[#64748b]">{shopName.get(row.shop_id || "") || "Shop 1"}</p>
                   <p className="mt-2 text-lg font-bold text-[#166534]">{money(row.total)}</p>
                   <p className="text-xs text-[#64748b]">{row.sales} sale{row.sales === 1 ? "" : "s"}</p>
                 </CardContent>

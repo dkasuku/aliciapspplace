@@ -147,7 +147,7 @@ export function UsersManager({ initialUsers, shops }: { initialUsers: StaffUser[
               </div>
               <div className="space-y-1 text-xs text-[#64748b]">
                 {user.role === "attendant" && (
-                  <p>Shop: <b className="text-[#0f172a]">{shopName.get(user.shop_id || "") || "Main Shop"}</b></p>
+                  <p>Shop: <b className="text-[#0f172a]">{shopName.get(user.shop_id || "") || "Shop 1"}</b></p>
                 )}
                 <p>
                   Last sign-in:{" "}

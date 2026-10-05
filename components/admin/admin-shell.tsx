@@ -221,7 +221,7 @@ export function AdminShell({
           {isAttendant ? (
             <div className="rounded-lg bg-[#f0fdf4] px-3 py-2 text-sm">
               <p className="text-[11px] font-bold uppercase tracking-wider text-[#64748b]">Your shop</p>
-              <p className="font-bold text-[#166534]">{myShop?.name || "Main Shop"}</p>
+              <p className="font-bold text-[#166534]">{myShop?.name || "Shop 1"}</p>
             </div>
           ) : (
             <ShopSwitcher shops={shops} activeShopId={activeShopId} />

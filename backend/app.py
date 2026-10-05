@@ -485,7 +485,7 @@ def current_actor():
 def main_shop():
     shop = Shop.query.filter_by(is_main=True).first()
     if not shop:
-        shop = Shop(id=gen_id(), name="Main Shop", is_main=True)
+        shop = Shop(id=gen_id(), name="Shop 1", is_main=True)
         db.session.add(shop)
         db.session.commit()
     return shop
@@ -498,7 +498,7 @@ def current_shop_id():
 
 def shop_name(shop_id):
     shop = Shop.query.get(shop_id) if shop_id else None
-    return shop.name if shop else "Main Shop"
+    return shop.name if shop else "Shop 1"
 
 
 def log_activity(action, summary, entity_id=None, amount=None, flag=None, shop_id=None):
@@ -1752,6 +1752,10 @@ def run_migrations():
         db.text("UPDATE product SET visible_in_pos = TRUE WHERE visible_in_pos IS NULL")
     )
     db.session.commit()
+
+    # The first shop was created as "Main Shop"; it's called "Shop 1" now.
+    # Only the untouched default name is changed, never one the admin chose.
+    db.session.execute(db.text("UPDATE shop SET name = 'Shop 1' WHERE is_main AND name = 'Main Shop'"))
 
     # Everything that existed before shops did belongs to the main shop.
     main_id = main_shop().id

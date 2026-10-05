@@ -29,7 +29,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { Category, Product } from "@/lib/api/types";
+import type { Category, Product, Shop } from "@/lib/api/types";
 import { Pagination, usePagination } from "./pagination";
 
 const money = (v: number) => `KES ${Number(v || 0).toLocaleString()}`;
@@ -38,13 +38,16 @@ export function ProductsManager({
   initialProducts,
   categories,
   canManage,
+  shops,
 }: {
   initialProducts: Product[];
   categories: Category[];
+  shops: Shop[];
   /** Attendants can add products but not edit prices or delete. */
   canManage: boolean;
 }) {
   const [products, setProducts] = useState(initialProducts);
+  const shopNames = new Map(shops.map((shop) => [shop.id, shop.name]));
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
@@ -327,6 +330,7 @@ export function ProductsManager({
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
+                <TableHead>Shop</TableHead>
                 <TableHead>SKU</TableHead>
                 <TableHead>Price</TableHead>
                 <TableHead>Sale Price</TableHead>
@@ -342,6 +346,11 @@ export function ProductsManager({
               {paging.visible.map((p) => (
                 <TableRow key={p.id}>
                   <TableCell className="font-medium">{p.name}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className="whitespace-nowrap text-[10px]">
+                      {shopNames.get(p.shop_id || "") || "Shop 1"}
+                    </Badge>
+                  </TableCell>
                   <TableCell className="text-[#64748b]">{p.sku || "—"}</TableCell>
                   <TableCell>{money(p.price)}</TableCell>
                   <TableCell>{p.sales_price ? money(p.sales_price) : "—"}</TableCell>
@@ -392,7 +401,7 @@ export function ProductsManager({
               ))}
               {filtered.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center text-[#64748b]">
+                  <TableCell colSpan={11} className="text-center text-[#64748b]">
                     No products found.
                   </TableCell>
                 </TableRow>
