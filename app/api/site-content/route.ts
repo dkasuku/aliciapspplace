@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireSession } from "@/lib/admin-session";
 import { promises as fs } from "fs";
 import path from "path";
 
@@ -65,6 +66,8 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
+  const auth = await requireSession({ manager: true });
+  if ("error" in auth) return auth.error;
   const body = await request.json();
   await writeContent(body);
   return NextResponse.json({ success: true });

@@ -20,6 +20,7 @@ export interface Product {
   /** Channel visibility. Absent means visible, for records written before the columns existed. */
   visible_on_site?: boolean;
   visible_in_pos?: boolean;
+  shop_id?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -63,6 +64,9 @@ export interface Sale {
   customer_name?: string | null;
   customer_phone?: string | null;
   status: string;
+  shop_id?: string | null;
+  sold_by_id?: string | null;
+  sold_by_name?: string | null;
   created_at: string;
   items: SaleItem[];
 }
@@ -151,4 +155,50 @@ export interface RentalRecord {
   notes?: string;
   created_at: string;
   updated_at?: string;
+}
+
+export interface Shop {
+  id: string;
+  name: string;
+  location?: string | null;
+  phone?: string | null;
+  is_main: boolean;
+  is_active: boolean;
+  product_count: number;
+}
+
+export interface StaffUser {
+  id: string;
+  name: string;
+  username: string;
+  phone?: string | null;
+  role: "admin" | "attendant";
+  shop_id: string | null;
+  is_active: boolean;
+  last_login?: string | null;
+  created_at?: string | null;
+}
+
+export interface ActivityEntry {
+  id: string;
+  actor_id: string | null;
+  actor_name: string | null;
+  actor_role: string | null;
+  shop_id: string | null;
+  action: string;
+  summary: string;
+  entity_id: string | null;
+  amount: number | null;
+  flagged: boolean;
+  flag_reason: string | null;
+  seen: boolean;
+  created_at: string;
+}
+
+export interface StaffSummary {
+  user_id: string | null;
+  name: string;
+  shop_id: string | null;
+  sales: number;
+  total: number;
 }

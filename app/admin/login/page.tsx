@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 export default function AdminLoginPage() {
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -17,11 +18,11 @@ export default function AdminLoginPage() {
       const res = await fetch("/api/admin/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ username, password }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Login failed");
-      router.push("/admin");
+      router.push(data.redirect || "/admin");
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
@@ -36,8 +37,8 @@ export default function AdminLoginPage() {
         <div className="mb-8 text-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/Phoneplacelg.png" alt="Alicia Phone Place" className="mx-auto h-20 w-auto object-contain" />
-          <h1 className="mt-6 font-display text-2xl font-black text-[#0f172a]">Admin Login</h1>
-          <p className="mt-2 text-sm text-[#64748b]">Enter your password to access the admin panel</p>
+          <h1 className="mt-6 font-display text-2xl font-black text-[#0f172a]">Sign in</h1>
+          <p className="mt-2 text-sm text-[#64748b]">Staff: use the username and password the admin gave you.</p>
         </div>
 
         <form onSubmit={handleSubmit} className="rounded-2xl border border-[#dbe6dd] bg-white p-6 shadow-sm">
@@ -45,15 +46,28 @@ export default function AdminLoginPage() {
             <div className="mb-4 rounded-lg border border-red-700 bg-red-50 p-3 text-sm text-red-800">{error}</div>
           )}
           <label className="block">
+            <span className="text-xs font-bold uppercase tracking-wider text-[#0f172a]/80">Username</span>
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              autoFocus
+              autoCapitalize="none"
+              autoComplete="username"
+              className="mt-2 w-full rounded-lg border border-[#166534]/30 bg-white p-4 text-sm text-[#0f172a] focus:outline-none focus:border-[#166534]"
+              placeholder="Leave blank if you're the owner"
+            />
+          </label>
+          <label className="mt-4 block">
             <span className="text-xs font-bold uppercase tracking-wider text-[#0f172a]/80">Password</span>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              autoFocus
+              autoComplete="current-password"
               className="mt-2 w-full rounded-lg border border-[#166534]/30 bg-white p-4 text-sm text-[#0f172a] focus:outline-none focus:border-[#166534]"
-              placeholder="Enter admin password"
+              placeholder="Password"
             />
           </label>
           <button

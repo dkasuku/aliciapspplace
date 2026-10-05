@@ -1,6 +1,7 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { api, ApiError } from "@/lib/api";
+import { requireSession } from "@/lib/admin-session";
+import { actorHeaders } from "@/lib/session";
 import type { Product } from "@/lib/api/types";
 
 function errorResponse(error: unknown) {
@@ -9,15 +10,10 @@ function errorResponse(error: unknown) {
   return NextResponse.json({ error: message }, { status });
 }
 
-async function isAdmin() {
-  const cookieStore = await cookies();
-  return cookieStore.get("admin_auth")?.value === "authenticated";
-}
-
 export async function POST(request: Request) {
-  if (!await isAdmin()) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  }
+  // Attendants may add products; the backend files them under their shop.
+  const auth = await requireSession();
+  if ("error" in auth) return auth.error;
 
   try {
     const data = await request.json() as Partial<Product>;
@@ -28,7 +24,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "A product name and valid price are required." }, { status: 400 });
     }
 
-    const product = await api.products.create({ ...data, name, price });
+    const product = await api.products.create({ ...data, name, price }, actorHeaders(auth.session, auth.shopId));
     return NextResponse.json(product, { status: 201 });
   } catch (error) {
     return errorResponse(error);

@@ -20,10 +20,15 @@ import {
   Image,
   ChevronDown,
   Store,
+  Building2,
+  Activity,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Stats } from "@/lib/api/types";
+import type { Shop, Stats } from "@/lib/api/types";
+import type { Session } from "@/lib/session";
 import { AdminAgentPanel } from "./admin-agent-panel";
+import { ShopSwitcher } from "./shop-switcher";
+import { ActivityBell } from "./activity-bell";
 
 type NavLeaf = { href: string; label: string; icon: typeof LayoutDashboard };
 type NavGroup = { label: string; icon: typeof LayoutDashboard; children: NavLeaf[] };
@@ -33,7 +38,7 @@ function isGroup(item: NavItem): item is NavGroup {
   return "children" in item;
 }
 
-const navItems: NavItem[] = [
+const managerNav: NavItem[] = [
   { href: "/admin", label: "Home", icon: LayoutDashboard },
   {
     label: "Catalog",
@@ -58,19 +63,50 @@ const navItems: NavItem[] = [
     ],
   },
   {
+    label: "Team & shops",
+    icon: Building2,
+    children: [
+      { href: "/admin/activity", label: "Activity", icon: Activity },
+      { href: "/admin/shops", label: "Shops", icon: Building2 },
+      { href: "/admin/users", label: "Users", icon: Users },
+    ],
+  },
+  {
     label: "Store",
     icon: Store,
     children: [
       { href: "/admin/banners", label: "Banners & Content", icon: Image },
       { href: "/admin/shipping", label: "Shipping", icon: Truck },
       { href: "/admin/agents", label: "AI Agents", icon: Bot },
-      { href: "/admin/users", label: "Users", icon: Users },
     ],
   },
 ];
 
-export function AdminShell({ children, stats }: { children: React.ReactNode; stats: Stats | null }) {
+/** Attendants get a flat, short menu: sell, add products, restock, see sales. */
+const attendantNav: NavLeaf[] = [
+  { href: "/admin/pos", label: "POS / Sell", icon: ShoppingCart },
+  { href: "/admin/products", label: "Products", icon: Package },
+  { href: "/admin/inventory", label: "Restock", icon: Boxes },
+  { href: "/admin/sales", label: "Sales", icon: ClipboardList },
+];
+
+export function AdminShell({
+  children,
+  stats,
+  session,
+  shops,
+  activeShopId,
+}: {
+  children: React.ReactNode;
+  stats: Stats | null;
+  session: Session;
+  shops: Shop[];
+  activeShopId: string | null;
+}) {
   const pathname = usePathname();
+  const isAttendant = session.role === "attendant";
+  const navItems: NavItem[] = isAttendant ? attendantNav : managerNav;
+  const myShop = shops.find((shop) => shop.id === session.shopId);
 
   const isPathInGroup = (group: NavGroup) =>
     group.children.some((child) => pathname === child.href || pathname.startsWith(child.href + "/"));
@@ -154,7 +190,7 @@ export function AdminShell({ children, stats }: { children: React.ReactNode; sta
     );
   }
 
-  const flatNavForMobile: NavLeaf[] = [
+  const flatNavForMobile: NavLeaf[] = isAttendant ? attendantNav : [
     { href: "/admin", label: "Home", icon: LayoutDashboard },
     { href: "/admin/products", label: "Products", icon: Package },
     { href: "/admin/categories", label: "Categories", icon: Tag },
@@ -169,6 +205,8 @@ export function AdminShell({ children, stats }: { children: React.ReactNode; sta
     { href: "/admin/banners", label: "Banners & Content", icon: Image },
     { href: "/admin/shipping", label: "Shipping", icon: Truck },
     { href: "/admin/agents", label: "AI Agents", icon: Bot },
+    { href: "/admin/activity", label: "Activity", icon: Activity },
+    { href: "/admin/shops", label: "Shops", icon: Building2 },
     { href: "/admin/users", label: "Users", icon: Users },
   ];
 
@@ -179,10 +217,20 @@ export function AdminShell({ children, stats }: { children: React.ReactNode; sta
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/Phoneplacelg.png" alt="Alicia Phone Store" className="h-16 w-auto max-w-[220px] object-contain" />
         </div>
+        <div className="border-b border-[#166534]/15 p-3">
+          {isAttendant ? (
+            <div className="rounded-lg bg-[#f0fdf4] px-3 py-2 text-sm">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-[#64748b]">Your shop</p>
+              <p className="font-bold text-[#166534]">{myShop?.name || "Main Shop"}</p>
+            </div>
+          ) : (
+            <ShopSwitcher shops={shops} activeShopId={activeShopId} />
+          )}
+        </div>
         <nav className="flex-1 space-y-1 overflow-y-auto p-3">
           {navItems.map(renderNavItem)}
         </nav>
-        {stats && (
+        {stats && !isAttendant && (
           <div className="border-t border-[#166534]/15 p-4">
             <div className="space-y-2 text-xs">
               <div className="flex justify-between">
@@ -210,9 +258,16 @@ export function AdminShell({ children, stats }: { children: React.ReactNode; sta
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/Phoneplacelg.png" alt="Alicia Phone Store" className="h-10 w-auto max-w-[140px] object-contain sm:h-14 sm:max-w-[200px]" />
           </div>
-          <h1 className="hidden text-lg font-bold text-[#0f172a] md:block">Admin Panel</h1>
+          <h1 className="hidden text-lg font-bold text-[#0f172a] md:block">
+            {isAttendant ? "Shop" : "Admin Panel"}
+          </h1>
           <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-            <AdminAgentPanel />
+            <span className="hidden text-xs text-[#64748b] lg:inline">
+              Signed in as <b className="text-[#0f172a]">{session.name}</b>
+              {isAttendant ? " · Attendant" : session.role === "admin" ? " · Admin" : ""}
+            </span>
+            {!isAttendant && <ActivityBell />}
+            {!isAttendant && <AdminAgentPanel />}
             <Link href="/" className="text-sm font-medium text-[#166534] hover:underline">
               <span className="hidden sm:inline">View store →</span>
               <span className="sm:hidden">Store →</span>
@@ -225,6 +280,11 @@ export function AdminShell({ children, stats }: { children: React.ReactNode; sta
           </div>
         </header>
 
+        {!isAttendant && (
+          <div className="border-b border-[#166534]/15 bg-white px-4 py-2 md:hidden">
+            <ShopSwitcher shops={shops} activeShopId={activeShopId} />
+          </div>
+        )}
         <nav className="flex overflow-x-auto border-b border-[#166534]/15 bg-white px-4 md:hidden">
           {flatNavForMobile.map((item) => {
             const active = isLeafActive(item.href);

@@ -113,7 +113,7 @@ export async function POST(request: Request) {
 
   let products: Product[] = fallbackProducts;
   try {
-    products = await api.products.list({ status: "active" });
+    products = await api.products.list({ status: "active", channel: "site" });
     if (!products.length) products = fallbackProducts;
   } catch {
     products = fallbackProducts;

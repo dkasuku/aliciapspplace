@@ -1,4 +1,5 @@
 import { api } from "@/lib/api";
+import { adminContext } from "@/lib/admin-session";
 import { Dashboard } from "@/components/admin/dashboard";
 import { fallbackProducts, fallbackSales, fallbackStats } from "@/lib/catalog";
 import type { Product, Sale, Stats } from "@/lib/api/types";
@@ -6,18 +7,16 @@ import type { Product, Sale, Stats } from "@/lib/api/types";
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboard() {
-  let stats: Stats | null = null;
-  let products: Product[] = [];
-  let sales: Sale[] = [];
+  const { headers } = await adminContext();
+  let stats: Stats = fallbackStats;
+  let products: Product[] = fallbackProducts;
+  let sales: Sale[] = fallbackSales;
   try {
     [stats, products, sales] = await Promise.all([
-      api.stats(),
-      api.products.list(),
-      api.sales.list(),
+      api.stats(headers),
+      api.products.list(undefined, headers),
+      api.sales.list(headers),
     ]);
   } catch {}
-  if (!products.length) products = fallbackProducts;
-  if (!sales.length) sales = fallbackSales;
-  if (!stats) stats = fallbackStats;
   return <Dashboard stats={stats} products={products} sales={sales} />;
 }

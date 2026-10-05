@@ -37,9 +37,12 @@ const money = (v: number) => `KES ${Number(v || 0).toLocaleString()}`;
 export function ProductsManager({
   initialProducts,
   categories,
+  canManage,
 }: {
   initialProducts: Product[];
   categories: Category[];
+  /** Attendants can add products but not edit prices or delete. */
+  canManage: boolean;
 }) {
   const [products, setProducts] = useState(initialProducts);
   const [search, setSearch] = useState("");
@@ -374,12 +377,16 @@ export function ProductsManager({
                     {p.categories?.join(", ") || "—"}
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="icon" onClick={() => openEdit(p)}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => remove(p.id)}>
-                      <Trash2 className="h-4 w-4 text-red-600" />
-                    </Button>
+                    {canManage && (
+                      <>
+                        <Button variant="ghost" size="icon" onClick={() => openEdit(p)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => remove(p.id)}>
+                          <Trash2 className="h-4 w-4 text-red-600" />
+                        </Button>
+                      </>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}

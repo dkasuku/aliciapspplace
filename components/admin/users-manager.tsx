@@ -1,210 +1,255 @@
 "use client";
 
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { useMemo, useState } from "react";
+import { KeyRound, Pencil, Plus, Shield, User } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { User, Plus, Mail, Shield, Phone, ChevronDown, ChevronUp } from "lucide-react";
+import type { Shop, StaffUser } from "@/lib/api/types";
 import { DeleteButton } from "./delete-button";
-import { useState } from "react";
-import { Pagination, usePagination } from "./pagination";
 
-type UserAccount = {
-  id: string;
+const API = "/api/admin/backend/api/users";
+
+type Form = {
   name: string;
-  email: string;
-  phone?: string;
-  role: "admin" | "staff" | "viewer";
-  active: boolean;
-  last_login?: string | null;
-  created_at?: string;
+  username: string;
+  phone: string;
+  password: string;
+  role: StaffUser["role"];
+  shop_id: string;
 };
 
-export function UsersManager({ initialUsers }: { initialUsers: UserAccount[] }) {
-  const [users, setUsers] = useState<UserAccount[]>(initialUsers);
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: "", email: "", phone: "", role: "staff" as UserAccount["role"] });
-  const [expanded, setExpanded] = useState<string | null>(null);
+async function send(url: string, method: string, body?: unknown) {
+  const res = await fetch(url, {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new Error((data as { error?: string } | null)?.error || `Request failed (HTTP ${res.status}).`);
+  return data;
+}
 
-  const addUser = () => {
-    if (!form.name || !form.email) return;
-    setUsers([
-      ...users,
-      {
-        id: `user-${Date.now()}`,
-        name: form.name,
-        email: form.email,
-        phone: form.phone,
-        role: form.role,
-        active: true,
-        last_login: null,
-        created_at: new Date().toISOString(),
-      },
-    ]);
-    setForm({ name: "", email: "", phone: "", role: "staff" });
-    setShowForm(false);
-  };
+export function UsersManager({ initialUsers, shops }: { initialUsers: StaffUser[]; shops: Shop[] }) {
+  const mainShop = shops.find((s) => s.is_main)?.id || shops[0]?.id || "";
+  const emptyForm: Form = { name: "", username: "", phone: "", password: "", role: "attendant", shop_id: mainShop };
 
-  const removeUser = (id: string) => {
-    setUsers(users.filter((u) => u.id !== id));
-  };
+  const [users, setUsers] = useState(initialUsers);
+  const [editing, setEditing] = useState<StaffUser | null>(null);
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState<Form>(emptyForm);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
-  const toggleActive = (id: string) => {
-    setUsers(users.map((u) => (u.id === id ? { ...u, active: !u.active } : u)));
-  };
+  const shopName = useMemo(() => new Map(shops.map((s) => [s.id, s.name])), [shops]);
 
-  const roleVariant = (role: string): "default" | "secondary" | "warning" => {
-    if (role === "admin") return "default";
-    if (role === "viewer") return "secondary";
-    return "warning";
-  };
+  function openNew() {
+    setEditing(null);
+    setForm(emptyForm);
+    setError(null);
+    setOpen(true);
+  }
 
-  const paging = usePagination(users, 10);
+  function openEdit(user: StaffUser) {
+    setEditing(user);
+    setForm({
+      name: user.name,
+      username: user.username,
+      phone: user.phone || "",
+      password: "",
+      role: user.role,
+      shop_id: user.shop_id || mainShop,
+    });
+    setError(null);
+    setOpen(true);
+  }
+
+  async function save() {
+    setSaving(true);
+    setError(null);
+    try {
+      // A blank password on edit means "keep the current one".
+      const body = { ...form, password: form.password || undefined };
+      const saved = (editing
+        ? await send(`${API}/${editing.id}`, "PUT", body)
+        : await send(API, "POST", body)) as StaffUser;
+      setUsers((prev) => (editing ? prev.map((u) => (u.id === saved.id ? saved : u)) : [...prev, saved]));
+      setNotice(
+        editing
+          ? `${saved.name} updated${form.password ? " — share the new password with them" : ""}.`
+          : `${saved.name} can now sign in with username "${saved.username}" and the password you set.`,
+      );
+      setOpen(false);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Could not save.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function toggleActive(user: StaffUser) {
+    try {
+      const saved = (await send(`${API}/${user.id}`, "PUT", { is_active: !user.is_active })) as StaffUser;
+      setUsers((prev) => prev.map((u) => (u.id === saved.id ? saved : u)));
+    } catch (reason) {
+      setNotice(reason instanceof Error ? reason.message : "Could not update.");
+    }
+  }
+
+  async function remove(user: StaffUser) {
+    await send(`${API}/${user.id}`, "DELETE");
+    setUsers((prev) => prev.filter((u) => u.id !== user.id));
+  }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="text-2xl font-bold text-[#0f172a]">Users</h2>
-          <p className="text-sm text-[#64748b]">{users.length} team members</p>
+          <p className="text-sm text-[#64748b]">
+            Attendants can sell, add products and restock in their shop. They can&apos;t change prices, delete
+            anything, or see other shops. Everything they do shows up under Activity.
+          </p>
         </div>
-        <Button onClick={() => setShowForm(!showForm)}>
+        <Button onClick={openNew}>
           <Plus className="mr-2 h-4 w-4" /> Add user
         </Button>
       </div>
 
-      {showForm && (
-        <Card>
-          <CardContent className="space-y-4 p-6">
-            <div className="grid gap-4 md:grid-cols-3">
+      {notice && <div className="rounded-lg bg-[#f0fdf4] p-3 text-sm text-[#166534]">{notice}</div>}
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {users.map((user) => (
+          <Card key={user.id} className={user.is_active ? "" : "opacity-60"}>
+            <CardContent className="space-y-3 p-5">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#dcfce7] text-[#166534]">
+                  {user.role === "admin" ? <Shield className="h-5 w-5" /> : <User className="h-5 w-5" />}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-bold text-[#0f172a]">{user.name}</p>
+                  <p className="truncate text-xs text-[#64748b]">@{user.username}{user.phone ? ` · ${user.phone}` : ""}</p>
+                </div>
+                <Badge variant={user.role === "admin" ? "default" : "secondary"} className="capitalize">
+                  {user.role}
+                </Badge>
+              </div>
+              <div className="space-y-1 text-xs text-[#64748b]">
+                {user.role === "attendant" && (
+                  <p>Shop: <b className="text-[#0f172a]">{shopName.get(user.shop_id || "") || "Main Shop"}</b></p>
+                )}
+                <p>
+                  Last sign-in:{" "}
+                  {user.last_login ? new Date(`${user.last_login.replace(/Z?$/, "Z")}`).toLocaleString() : "never"}
+                </p>
+                {!user.is_active && <p className="font-bold text-amber-700">Disabled — cannot sign in</p>}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" variant="outline" onClick={() => openEdit(user)}>
+                  <Pencil className="mr-1.5 h-3.5 w-3.5" /> Edit / password
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => toggleActive(user)}>
+                  {user.is_active ? "Disable" : "Enable"}
+                </Button>
+                <DeleteButton size="sm" onDelete={() => remove(user)} label={user.name} />
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+        {users.length === 0 && (
+          <p className="text-sm text-[#64748b]">No staff accounts yet. Add your first attendant above.</p>
+        )}
+      </div>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editing ? `Edit ${editing.name}` : "Add a user"}</DialogTitle>
+            <DialogDescription>
+              They sign in at /admin/login with the username and password you set here.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <Label htmlFor="user-name">Name</Label>
-                <Input id="user-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Jane Doe" />
+                <Label htmlFor="u-name">Full name *</Label>
+                <Input id="u-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
               </div>
               <div>
-                <Label htmlFor="user-email">Email</Label>
-                <Input id="user-email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="jane@store.com" />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="user-phone">Phone number</Label>
-                <Input id="user-phone" type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="07xx xxx xxx" />
+                <Label htmlFor="u-username">Username *</Label>
+                <Input id="u-username" value={form.username} autoComplete="off" onChange={(e) => setForm({ ...form, username: e.target.value.replace(/\s/g, "") })} />
               </div>
               <div>
-                <Label htmlFor="user-role">Role</Label>
-                <select id="user-role" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as UserAccount["role"] })} className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
-                  <option value="admin">Admin</option>
-                  <option value="staff">Staff</option>
-                  <option value="viewer">Viewer</option>
+                <Label htmlFor="u-phone">Phone</Label>
+                <Input id="u-phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+              </div>
+              <div>
+                <Label htmlFor="u-password" className="flex items-center gap-1">
+                  <KeyRound className="h-3 w-3" /> {editing ? "New password" : "Password *"}
+                </Label>
+                <Input
+                  id="u-password"
+                  type="text"
+                  autoComplete="new-password"
+                  value={form.password}
+                  placeholder={editing ? "Leave blank to keep" : "At least 4 characters"}
+                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <Label htmlFor="u-role">Role</Label>
+                <select
+                  id="u-role"
+                  value={form.role}
+                  onChange={(e) => setForm({ ...form, role: e.target.value as StaffUser["role"] })}
+                  className="mt-1 w-full rounded-md border border-[#166534]/30 bg-white px-3 py-2 text-sm"
+                >
+                  <option value="attendant">Shop attendant</option>
+                  <option value="admin">Admin (full access)</option>
                 </select>
               </div>
-            </div>
-            <div className="flex gap-2">
-              <Button onClick={addUser}>Save user</Button>
-              <Button variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {users.length === 0 && !showForm ? (
-        <Card>
-          <CardContent className="py-16 text-center">
-            <User className="mx-auto h-12 w-12 text-[#cbd5e1]" />
-            <p className="mt-4 text-sm text-[#64748b]">No team members yet.</p>
-            <p className="mt-1 text-xs text-[#94a3b8]">Add users to give them access to the admin panel.</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <>
-        <div className="space-y-3">
-          {paging.visible.map((user) => (
-            <Card key={user.id}>
-              <CardContent className="flex items-center justify-between p-4">
-                <div className="flex items-center gap-4">
-                  <div className="grid h-10 w-10 place-items-center rounded-full bg-[#dcfce7]">
-                    <User className="h-5 w-5 text-[#166534]" />
-                  </div>
-                  <div>
-                    <p className="font-bold text-[#0f172a]">{user.name}</p>
-                    <div className="flex items-center gap-2 text-xs text-[#64748b]">
-                      <Mail className="h-3 w-3" />
-                      {user.email}
-                    </div>
-                    {user.phone && (
-                      <div className="flex items-center gap-2 text-xs text-[#64748b]">
-                        <Phone className="h-3 w-3" />
-                        {user.phone}
-                      </div>
-                    )}
-                    {user.last_login && (
-                      <p className="text-xs text-[#94a3b8]">Last login: {new Date(user.last_login).toLocaleDateString()}</p>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-1">
-                    <Shield className="h-3.5 w-3.5 text-[#64748b]" />
-                    <Badge variant={roleVariant(user.role)}>{user.role}</Badge>
-                  </div>
-                  <Badge variant={user.active ? "default" : "secondary"} onClick={() => toggleActive(user.id)} className="cursor-pointer">
-                    {user.active ? "Active" : "Inactive"}
-                  </Badge>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label={expanded === user.id ? "Hide details" : "Show details"}
-                    onClick={() => setExpanded(expanded === user.id ? null : user.id)}
+              {form.role === "attendant" && (
+                <div>
+                  <Label htmlFor="u-shop">Works in</Label>
+                  <select
+                    id="u-shop"
+                    value={form.shop_id}
+                    onChange={(e) => setForm({ ...form, shop_id: e.target.value })}
+                    className="mt-1 w-full rounded-md border border-[#166534]/30 bg-white px-3 py-2 text-sm"
                   >
-                    {expanded === user.id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                  </Button>
-                  <DeleteButton onDelete={() => removeUser(user.id)} label={user.name} />
-                </div>
-              </CardContent>
-              {expanded === user.id && (
-                <div className="border-t border-[#166534]/15 bg-[#f8faf5] px-4 py-4 text-sm">
-                  <dl className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
-                    <div><dt className="text-xs text-[#64748b]">Full name</dt><dd className="font-medium text-[#0f172a]">{user.name}</dd></div>
-                    <div><dt className="text-xs text-[#64748b]">Role</dt><dd className="font-medium capitalize text-[#0f172a]">{user.role}</dd></div>
-                    <div>
-                      <dt className="text-xs text-[#64748b]">Email</dt>
-                      <dd><a href={`mailto:${user.email}`} className="font-medium text-[#166534] underline">{user.email}</a></dd>
-                    </div>
-                    <div>
-                      <dt className="text-xs text-[#64748b]">Phone</dt>
-                      <dd>
-                        {user.phone ? (
-                          <a href={`tel:${user.phone.replace(/\s/g, "")}`} className="font-medium text-[#166534] underline">{user.phone}</a>
-                        ) : (
-                          <span className="text-[#94a3b8]">Not set</span>
-                        )}
-                      </dd>
-                    </div>
-                    <div><dt className="text-xs text-[#64748b]">Status</dt><dd className="font-medium text-[#0f172a]">{user.active ? "Active" : "Inactive"}</dd></div>
-                    <div>
-                      <dt className="text-xs text-[#64748b]">Added</dt>
-                      <dd className="font-medium text-[#0f172a]">{user.created_at ? new Date(user.created_at).toLocaleDateString() : "—"}</dd>
-                    </div>
-                    <div className="sm:col-span-2">
-                      <dt className="text-xs text-[#64748b]">Last login</dt>
-                      <dd className="font-medium text-[#0f172a]">{user.last_login ? new Date(user.last_login).toLocaleString() : "Never signed in"}</dd>
-                    </div>
-                  </dl>
+                    {shops.filter((s) => s.is_active || s.id === form.shop_id).map((s) => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
                 </div>
               )}
-            </Card>
-          ))}
-        </div>
-          <div className="rounded-xl border border-[#166534]/15 bg-white">
-            <Pagination state={paging} label="users" />
+            </div>
+            {error && <div className="rounded-lg border border-red-700 bg-red-50 p-3 text-sm text-red-800">{error}</div>}
           </div>
-        </>
-      )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button
+              onClick={save}
+              disabled={saving || !form.name.trim() || !form.username.trim() || (!editing && !form.password)}
+            >
+              {saving ? "Saving…" : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

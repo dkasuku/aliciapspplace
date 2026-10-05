@@ -1,4 +1,4 @@
-import { cookies } from "next/headers";
+import { requireSession } from "@/lib/admin-session";
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -6,9 +6,8 @@ export const dynamic = "force-dynamic";
 const API_URL = process.env.API_URL || "http://localhost:5000";
 
 export async function GET(request: Request) {
-  if ((await cookies()).get("admin_auth")?.value !== "authenticated") {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  }
+  const auth = await requireSession({ manager: true });
+  if ("error" in auth) return auth.error;
 
   const status = new URL(request.url).searchParams.get("status");
   const target = new URL(`${API_URL}/api/deliveries`);

@@ -33,7 +33,7 @@ import { Pagination, usePagination } from "./pagination";
 // Same-origin admin proxy — see app/api/admin/backend/[...path]/route.ts
 const API_URL = "/api/admin/backend";
 
-export function InventoryManager({ initialItems }: { initialItems: InventoryItem[] }) {
+export function InventoryManager({ initialItems, canAdjust }: { initialItems: InventoryItem[]; canAdjust: boolean }) {
   const [items, setItems] = useState(initialItems);
   const [actionError, setActionError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -195,9 +195,11 @@ export function InventoryManager({ initialItems }: { initialItems: InventoryItem
                     <Button variant="ghost" size="sm" onClick={() => openRestock(item)}>
                       <Plus className="mr-1 h-3 w-3" /> Restock
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={() => openAdjust(item)}>
-                      Adjust
-                    </Button>
+                    {canAdjust && (
+                      <Button variant="ghost" size="sm" onClick={() => openAdjust(item)}>
+                        Adjust
+                      </Button>
+                    )}
                     <Button variant="ghost" size="icon" onClick={() => openHistory(item)}>
                       <History className="h-4 w-4" />
                     </Button>

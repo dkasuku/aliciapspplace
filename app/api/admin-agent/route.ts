@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { api } from "@/lib/api";
+import { requireSession } from "@/lib/admin-session";
 import type { Product, Category, InventoryItem, Sale, Stats } from "@/lib/api/types";
 
 const BASE_PROMPT = `You are the AI admin assistant for Alicia Phone Place, a phone and tech store in Juja, Kenya.
@@ -183,6 +184,9 @@ function extractActions(reply: string): { cleaned: string; actions: { action: st
 }
 
 export async function POST(request: Request) {
+  const auth = await requireSession({ manager: true });
+  if ("error" in auth) return auth.error;
+
   const body = (await request.json()) as {
     message?: unknown;
     messages?: ChatMessage[];

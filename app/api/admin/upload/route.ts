@@ -1,4 +1,4 @@
-import { cookies } from "next/headers";
+import { requireSession } from "@/lib/admin-session";
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -7,9 +7,8 @@ const API_URL = process.env.API_URL || "http://localhost:5000";
 
 /** Proxies an admin image upload to the backend, which stores it in Backblaze. */
 export async function POST(request: Request) {
-  if ((await cookies()).get("admin_auth")?.value !== "authenticated") {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  }
+  const auth = await requireSession();
+  if ("error" in auth) return auth.error;
 
   const incoming = await request.formData();
   const file = incoming.get("file");
@@ -41,9 +40,8 @@ export async function POST(request: Request) {
 }
 
 export async function GET() {
-  if ((await cookies()).get("admin_auth")?.value !== "authenticated") {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  }
+  const auth = await requireSession();
+  if ("error" in auth) return auth.error;
   try {
     const response = await fetch(`${API_URL}/api/uploads/config`, { cache: "no-store" });
     return NextResponse.json(await response.json());

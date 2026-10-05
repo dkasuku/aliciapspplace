@@ -1,4 +1,4 @@
-import { cookies } from "next/headers";
+import { requireSession } from "@/lib/admin-session";
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -6,9 +6,8 @@ export const dynamic = "force-dynamic";
 const API_URL = process.env.API_URL || "http://localhost:5000";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  if ((await cookies()).get("admin_auth")?.value !== "authenticated") {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  }
+  const auth = await requireSession({ manager: true });
+  if ("error" in auth) return auth.error;
 
   const { id } = await params;
   const body = await request.json().catch(() => ({}));
@@ -34,9 +33,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 }
 
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  if ((await cookies()).get("admin_auth")?.value !== "authenticated") {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  }
+  const auth = await requireSession({ manager: true });
+  if ("error" in auth) return auth.error;
 
   const { id } = await params;
 

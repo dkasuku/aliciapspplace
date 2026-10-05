@@ -22,7 +22,7 @@ import { DeleteButton } from "./delete-button";
 
 const money = (v: number) => `KES ${Number(v || 0).toLocaleString()}`;
 
-export function SalesHistory({ initialSales }: { initialSales: Sale[] }) {
+export function SalesHistory({ initialSales, canDelete }: { initialSales: Sale[]; canDelete: boolean }) {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [sales, setSales] = useState(initialSales);
 
@@ -54,6 +54,7 @@ export function SalesHistory({ initialSales }: { initialSales: Sale[] }) {
                 <TableHead>Items</TableHead>
                 <TableHead>Payment</TableHead>
                 <TableHead>Customer</TableHead>
+                <TableHead>Sold by</TableHead>
                 <TableHead>Total</TableHead>
                 <TableHead></TableHead>
               </TableRow>
@@ -71,6 +72,7 @@ export function SalesHistory({ initialSales }: { initialSales: Sale[] }) {
                       <Badge variant="secondary" className="capitalize">{sale.payment_method}</Badge>
                     </TableCell>
                     <TableCell className="text-[#64748b]">{sale.customer_name || "Walk-in"}</TableCell>
+                    <TableCell className="text-[#64748b]">{sale.sold_by_name || "—"}</TableCell>
                     <TableCell className="font-bold text-[#166534]">{money(sale.total)}</TableCell>
                     <TableCell>
                       <Button
@@ -80,12 +82,14 @@ export function SalesHistory({ initialSales }: { initialSales: Sale[] }) {
                       >
                         {expanded === sale.id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                       </Button>
-                      <DeleteButton onDelete={() => deleteSale(sale)} label={`receipt ${sale.receipt_no}`} />
+                      {canDelete && (
+                        <DeleteButton onDelete={() => deleteSale(sale)} label={`receipt ${sale.receipt_no}`} />
+                      )}
                     </TableCell>
                   </TableRow>
                   {expanded === sale.id && (
                     <TableRow>
-                      <TableCell colSpan={7} className="bg-[#f8faf5]">
+                      <TableCell colSpan={8} className="bg-[#f8faf5]">
                         <div className="space-y-2 p-2">
                           {sale.items?.map((item) => (
                             <div key={item.id} className="flex justify-between text-sm">
@@ -117,7 +121,7 @@ export function SalesHistory({ initialSales }: { initialSales: Sale[] }) {
               ))}
               {initialSales.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-8 text-center text-[#64748b]">
+                  <TableCell colSpan={8} className="py-8 text-center text-[#64748b]">
                     <Receipt className="mx-auto mb-2 h-8 w-8 text-[#94a3b8]" />
                     No sales recorded yet.
                   </TableCell>

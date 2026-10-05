@@ -1,15 +1,15 @@
 import { api } from "@/lib/api";
+import { adminContext } from "@/lib/admin-session";
 import { SalesHistory } from "@/components/admin/sales-history";
-import { fallbackSales } from "@/lib/catalog";
 import type { Sale } from "@/lib/api/types";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminSalesPage() {
+  const { headers, manager } = await adminContext();
   let sales: Sale[] = [];
   try {
-    sales = await api.sales.list();
+    sales = await api.sales.list(headers);
   } catch {}
-  if (!sales.length) sales = fallbackSales;
-  return <SalesHistory initialSales={sales} />;
+  return <SalesHistory initialSales={sales} canDelete={manager} />;
 }

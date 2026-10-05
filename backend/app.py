@@ -1,9 +1,10 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, g
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
 from datetime import datetime, timezone
 import uuid as uuid_lib
+from werkzeug.security import generate_password_hash, check_password_hash
 import json
 import os
 
@@ -74,6 +75,8 @@ class Product(db.Model):
     # Which channels the product appears in. Hidden from both = shop record only.
     visible_on_site = db.Column(db.Boolean, default=True)
     visible_in_pos = db.Column(db.Boolean, default=True)
+    # The branch this product is stocked in. Each shop keeps its own copy and stock.
+    shop_id = db.Column(db.String(36), nullable=True, index=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(
         db.DateTime,
@@ -105,6 +108,7 @@ class Product(db.Model):
             "visible_on_site": True if self.visible_on_site is None else self.visible_on_site,
             "visible_in_pos": True if self.visible_in_pos is None else self.visible_in_pos,
             "categories": [c.name for c in self.categories],
+            "shop_id": self.shop_id,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
@@ -124,6 +128,9 @@ class Sale(db.Model):
     customer_name = db.Column(db.String(200), nullable=True)
     customer_phone = db.Column(db.String(50), nullable=True)
     status = db.Column(db.String(20), default="completed")
+    shop_id = db.Column(db.String(36), nullable=True, index=True)
+    sold_by_id = db.Column(db.String(36), nullable=True)
+    sold_by_name = db.Column(db.String(120), nullable=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     items = db.relationship("SaleItem", backref="sale", cascade="all, delete-orphan")
 
@@ -142,6 +149,9 @@ class Sale(db.Model):
             "customer_name": self.customer_name,
             "customer_phone": self.customer_phone,
             "status": self.status,
+            "shop_id": self.shop_id,
+            "sold_by_id": self.sold_by_id,
+            "sold_by_name": self.sold_by_name,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "items": [item.to_dict() for item in self.items],
         }
@@ -244,6 +254,90 @@ class StockMovement(db.Model):
             "type": self.type,
             "quantity": self.quantity,
             "reason": self.reason,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class Shop(db.Model):
+    """A branch. Exactly one is the main shop, which the website sells from."""
+    id = db.Column(db.String(36), primary_key=True)
+    name = db.Column(db.String(120), nullable=False)
+    location = db.Column(db.String(200), nullable=True)
+    phone = db.Column(db.String(50), nullable=True)
+    is_main = db.Column(db.Boolean, default=False)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "location": self.location,
+            "phone": self.phone,
+            "is_main": bool(self.is_main),
+            "is_active": self.is_active is not False,
+            "product_count": Product.query.filter_by(shop_id=self.id).count(),
+        }
+
+
+class User(db.Model):
+    """A staff login. Admins manage everything; attendants sell and restock in one shop."""
+    __tablename__ = "staff_user"
+    id = db.Column(db.String(36), primary_key=True)
+    name = db.Column(db.String(120), nullable=False)
+    username = db.Column(db.String(80), nullable=False, unique=True)
+    phone = db.Column(db.String(50), nullable=True)
+    password_hash = db.Column(db.String(300), nullable=False)
+    role = db.Column(db.String(20), default="attendant")  # admin, attendant
+    shop_id = db.Column(db.String(36), nullable=True)
+    is_active = db.Column(db.Boolean, default=True)
+    last_login = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "username": self.username,
+            "phone": self.phone,
+            "role": self.role,
+            "shop_id": self.shop_id,
+            "is_active": self.is_active is not False,
+            "last_login": self.last_login.isoformat() if self.last_login else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class ActivityLog(db.Model):
+    """Who did what, where. Flagged rows are the ones an owner should look at."""
+    id = db.Column(db.String(36), primary_key=True)
+    actor_id = db.Column(db.String(36), nullable=True, index=True)
+    actor_name = db.Column(db.String(120), nullable=True)
+    actor_role = db.Column(db.String(20), nullable=True)
+    shop_id = db.Column(db.String(36), nullable=True, index=True)
+    action = db.Column(db.String(60), nullable=False)
+    summary = db.Column(db.String(500), nullable=False)
+    entity_id = db.Column(db.String(36), nullable=True)
+    amount = db.Column(db.Float, nullable=True)
+    flagged = db.Column(db.Boolean, default=False)
+    flag_reason = db.Column(db.String(300), nullable=True)
+    seen = db.Column(db.Boolean, default=False, index=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "actor_id": self.actor_id,
+            "actor_name": self.actor_name,
+            "actor_role": self.actor_role,
+            "shop_id": self.shop_id,
+            "action": self.action,
+            "summary": self.summary,
+            "entity_id": self.entity_id,
+            "amount": self.amount,
+            "flagged": bool(self.flagged),
+            "flag_reason": self.flag_reason,
+            "seen": bool(self.seen),
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 
@@ -366,6 +460,110 @@ def get_or_create_category(name):
     return cat
 
 
+# ── Staff, shops and the activity trail ──────────────────────────────────────
+#
+# The admin app signs the session and passes who is acting in X-Actor-* headers.
+# If INTERNAL_API_KEY is set, those headers only count when X-Internal-Key
+# matches, so nobody can claim to be the owner by calling this API directly.
+
+INTERNAL_API_KEY = os.environ.get("INTERNAL_API_KEY")
+
+
+def current_actor():
+    if INTERNAL_API_KEY and request.headers.get("X-Internal-Key") != INTERNAL_API_KEY:
+        return None
+    actor_id = request.headers.get("X-Actor-Id")
+    if not actor_id:
+        return None
+    return {
+        "id": actor_id,
+        "name": request.headers.get("X-Actor-Name") or "Unknown",
+        "role": request.headers.get("X-Actor-Role") or "attendant",
+    }
+
+
+def main_shop():
+    shop = Shop.query.filter_by(is_main=True).first()
+    if not shop:
+        shop = Shop(id=gen_id(), name="Main Shop", is_main=True)
+        db.session.add(shop)
+        db.session.commit()
+    return shop
+
+
+def current_shop_id():
+    """The shop a request works in: header from the admin app, else ?shop_id=."""
+    return request.headers.get("X-Shop-Id") or request.args.get("shop_id") or None
+
+
+def shop_name(shop_id):
+    shop = Shop.query.get(shop_id) if shop_id else None
+    return shop.name if shop else "Main Shop"
+
+
+def log_activity(action, summary, entity_id=None, amount=None, flag=None, shop_id=None):
+    """Adds a trail row to the session; the caller's commit saves it."""
+    actor = current_actor() or {"id": None, "name": "System", "role": "system"}
+    entry = ActivityLog(
+        id=gen_id(),
+        actor_id=actor["id"],
+        actor_name=actor["name"],
+        actor_role=actor["role"],
+        shop_id=shop_id or current_shop_id(),
+        action=action,
+        summary=summary[:500],
+        entity_id=entity_id,
+        amount=amount,
+        flagged=bool(flag),
+        flag_reason=flag,
+        # The owner doesn't need to be told about their own changes.
+        seen=actor["role"] == "owner",
+    )
+    db.session.add(entry)
+    g.activity_logged = True
+    return entry
+
+
+def is_attendant():
+    actor = current_actor()
+    return bool(actor and actor["role"] == "attendant")
+
+
+@app.before_request
+def reject_disabled_staff():
+    """A disabled account is locked out at once, even with a live session cookie."""
+    actor = current_actor()
+    if not actor or actor["role"] == "owner":
+        return None
+    user = User.query.get(actor["id"])
+    if not user or user.is_active is False:
+        return jsonify({"error": "This account has been disabled. Ask the admin."}), 401
+    # The admin moved this person to another shop or changed their role since they signed in.
+    if user.role != actor["role"] or (user.role == "attendant" and user.shop_id != request.headers.get("X-Shop-Id")):
+        return jsonify({"error": "Your account was changed by the admin. Please sign out and sign in again."}), 401
+    return None
+
+
+@app.after_request
+def log_unlabelled_changes(response):
+    """Safety net: any change by staff that a route didn't describe still lands in the trail."""
+    if (
+        request.method in ("POST", "PUT", "PATCH", "DELETE")
+        and response.status_code < 400
+        and current_actor()
+        and not getattr(g, "activity_logged", False)
+        and request.path.startswith("/api/")
+        and not request.path.startswith("/api/activity")
+        and not request.path.startswith("/api/auth")
+    ):
+        try:
+            log_activity("change", f"{request.method} {request.path}")
+            db.session.commit()
+        except Exception:  # noqa: BLE001 - never fail the real request over the log
+            db.session.rollback()
+    return response
+
+
 # ── Category routes ──────────────────────────────────────────────────────────
 
 @app.get("/api/categories")
@@ -428,6 +626,12 @@ def list_products():
     # channel=site / channel=pos hides anything the shop has switched off for
     # that surface. Admin omits it and sees everything.
     channel = request.args.get("channel")
+    shop_id = current_shop_id()
+    if shop_id:
+        query = query.filter(Product.shop_id == shop_id)
+    elif channel == "site":
+        # The website sells from the main shop; branch copies would be duplicates.
+        query = query.filter(Product.shop_id == main_shop().id)
     if channel == "site":
         query = query.filter(Product.visible_on_site.isnot(False))
     elif channel == "pos":
@@ -480,10 +684,17 @@ def create_product():
         specs=json.dumps(data.get("specs", [])),
         visible_on_site=bool(data.get("visible_on_site", True)),
         visible_in_pos=bool(data.get("visible_in_pos", True)),
+        shop_id=current_shop_id() or data.get("shop_id") or main_shop().id,
     )
     for cat_name in data.get("categories", []):
         product.categories.append(get_or_create_category(cat_name))
     db.session.add(product)
+    log_activity(
+        "product_added",
+        f"Added product {product.name} · KES {product.price:,.0f} · {product.stock} in stock",
+        entity_id=product.id,
+        shop_id=product.shop_id,
+    )
     db.session.commit()
     return jsonify(product.to_dict()), 201
 
@@ -494,6 +705,7 @@ def update_product(product_id):
     data = request.get_json(force=True)
     import json
 
+    old_price, old_sales_price, old_stock = product.price, product.sales_price, product.stock
     product.name = data.get("name", product.name)
     product.slug = slugify(data.get("slug", product.slug))
     product.description = data.get("description", product.description)
@@ -518,6 +730,21 @@ def update_product(product_id):
         product.categories = []
         for cat_name in data["categories"]:
             product.categories.append(get_or_create_category(cat_name))
+
+    changes = []
+    if product.price != old_price or product.sales_price != old_sales_price:
+        changes.append(
+            f"price {old_sales_price or old_price:,.0f} → {product.sales_price or product.price:,.0f}"
+        )
+    if product.stock != old_stock:
+        changes.append(f"stock {old_stock} → {product.stock}")
+    log_activity(
+        "product_edited",
+        f"Edited {product.name}" + (f" ({', '.join(changes)})" if changes else ""),
+        entity_id=product.id,
+        shop_id=product.shop_id,
+        flag="Stock lowered by editing the product" if product.stock < old_stock and is_attendant() else None,
+    )
     db.session.commit()
     return jsonify(product.to_dict())
 
@@ -539,6 +766,13 @@ def delete_product(product_id):
     product.categories.clear()
     db.session.flush()
 
+    log_activity(
+        "product_deleted",
+        f"Deleted product {product.name} ({product.stock} were in stock)",
+        entity_id=product.id,
+        shop_id=product.shop_id,
+        flag="Product deleted with stock on hand" if (product.stock or 0) > 0 else None,
+    )
     db.session.delete(product)
     db.session.commit()
     return jsonify({"ok": True, "deleted": product_id})
@@ -548,7 +782,11 @@ def delete_product(product_id):
 
 @app.get("/api/inventory")
 def list_inventory():
-    products = Product.query.order_by(Product.name).all()
+    query = Product.query
+    shop_id = current_shop_id()
+    if shop_id:
+        query = query.filter(Product.shop_id == shop_id)
+    products = query.order_by(Product.name).all()
     result = []
     for p in products:
         result.append({
@@ -580,6 +818,13 @@ def restock_product(product_id):
         reason=reason,
     )
     db.session.add(movement)
+    log_activity(
+        "restock",
+        f"Restocked {product.name} by {qty} (now {product.stock}) · {reason}",
+        entity_id=product.id,
+        shop_id=product.shop_id,
+        flag="Negative restock" if qty < 0 else None,
+    )
     db.session.commit()
     return jsonify(product.to_dict())
 
@@ -600,6 +845,13 @@ def adjust_stock(product_id):
         reason=reason,
     )
     db.session.add(movement)
+    log_activity(
+        "stock_adjusted",
+        f"Adjusted {product.name} stock {new_stock - diff} → {new_stock} · {reason}",
+        entity_id=product.id,
+        shop_id=product.shop_id,
+        flag=f"Stock reduced by {-diff} without a sale" if diff < 0 else None,
+    )
     db.session.commit()
     return jsonify(product.to_dict())
 
@@ -627,12 +879,19 @@ def create_sale():
 
     subtotal = 0.0
     sale_items = []
+    below_price = []
+    first_shop_id = None
     for item in items:
         product = Product.query.get(item.get("product_id"))
         if not product:
             return jsonify({"error": f"Product not found: {item.get('product_id')}"}), 404
+        if first_shop_id is None:
+            first_shop_id = product.shop_id
         qty = int(item.get("quantity", 1))
         unit_price = float(item.get("unit_price", product.sales_price or product.price))
+        list_price = product.sales_price or product.price
+        if unit_price < list_price:
+            below_price.append(f"{product.name} at {unit_price:,.0f} (list {list_price:,.0f})")
         line_total = unit_price * qty
         subtotal += line_total
         si = SaleItem(
@@ -658,6 +917,9 @@ def create_sale():
     discount = float(data.get("discount", 0))
     delivery_fee = float(data.get("delivery_fee", 0) or 0)
     total = subtotal + tax + delivery_fee - discount
+    if total < 0 or discount < 0:
+        db.session.rollback()
+        return jsonify({"error": "The discount can't be more than the sale."}), 400
     receipt_no = f"R{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
 
     sale = Sale(
@@ -673,16 +935,41 @@ def create_sale():
         payment_method=data.get("payment_method", "cash"),
         customer_name=data.get("customer_name"),
         customer_phone=data.get("customer_phone"),
+        # With no shop chosen ("All shops"), the sale belongs where the goods came from.
+        shop_id=current_shop_id() or data.get("shop_id") or first_shop_id or main_shop().id,
     )
+    actor = current_actor()
+    sale.sold_by_id = actor["id"] if actor else None
+    sale.sold_by_name = actor["name"] if actor else "Website"
     sale.items = sale_items
     db.session.add(sale)
+
+    if actor:
+        flags = []
+        if below_price:
+            flags.append("Sold below price: " + "; ".join(below_price))
+        if discount > 0:
+            flags.append(f"Discount of KES {discount:,.0f}")
+        count = sum(si.quantity for si in sale_items)
+        log_activity(
+            "sale",
+            f"Sold {count} item{'s' if count != 1 else ''} · KES {total:,.0f} · {sale.payment_method} · {receipt_no}",
+            entity_id=sale.id,
+            amount=total,
+            shop_id=sale.shop_id,
+            flag=" · ".join(flags) if flags and actor["role"] != "owner" else None,
+        )
     db.session.commit()
     return jsonify(sale.to_dict()), 201
 
 
 @app.get("/api/sales")
 def list_sales():
-    sales = Sale.query.order_by(Sale.created_at.desc()).limit(100).all()
+    query = Sale.query
+    shop_id = current_shop_id()
+    if shop_id:
+        query = query.filter(Sale.shop_id == shop_id)
+    sales = query.order_by(Sale.created_at.desc()).limit(200).all()
     return jsonify([s.to_dict() for s in sales])
 
 
@@ -700,6 +987,14 @@ def delete_sale(sale_id):
     that. Line items go with it via the cascade.
     """
     sale = Sale.query.get_or_404(sale_id)
+    log_activity(
+        "sale_deleted",
+        f"Deleted sale {sale.receipt_no} · KES {sale.total:,.0f} (sold by {sale.sold_by_name or 'unknown'})",
+        entity_id=sale.id,
+        amount=sale.total,
+        shop_id=sale.shop_id,
+        flag="A recorded sale was deleted",
+    )
     db.session.delete(sale)
     db.session.commit()
     return jsonify({"ok": True, "deleted": sale_id})
@@ -995,19 +1290,22 @@ def add_rental_payment(rental_id):
 
 @app.get("/api/stats")
 def stats():
-    total_products = Product.query.count()
+    shop_id = current_shop_id()
+    products = Product.query.filter(Product.shop_id == shop_id) if shop_id else Product.query
+    sales = Sale.query.filter(Sale.shop_id == shop_id) if shop_id else Sale.query
+    revenue_q = db.session.query(db.func.coalesce(db.func.sum(Sale.total), 0))
+    if shop_id:
+        revenue_q = revenue_q.filter(Sale.shop_id == shop_id)
+
+    total_products = products.count()
     total_categories = Category.query.filter_by(is_active=True).count()
-    low_stock = Product.query.filter(Product.stock <= Product.low_stock_threshold).count()
-    out_of_stock = Product.query.filter_by(stock=0).count()
-    total_sales = Sale.query.count()
-    revenue = db.session.query(db.func.coalesce(db.func.sum(Sale.total), 0)).scalar()
+    low_stock = products.filter(Product.stock <= Product.low_stock_threshold).count()
+    out_of_stock = products.filter(Product.stock == 0).count()
+    total_sales = sales.count()
+    revenue = revenue_q.scalar()
     today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-    today_sales = Sale.query.filter(Sale.created_at >= today_start).count()
-    today_revenue = (
-        db.session.query(db.func.coalesce(db.func.sum(Sale.total), 0))
-        .filter(Sale.created_at >= today_start)
-        .scalar()
-    )
+    today_sales = sales.filter(Sale.created_at >= today_start).count()
+    today_revenue = revenue_q.filter(Sale.created_at >= today_start).scalar()
     return jsonify({
         "total_products": total_products,
         "total_categories": total_categories,
@@ -1018,6 +1316,274 @@ def stats():
         "today_sales": today_sales,
         "today_revenue": float(today_revenue),
     })
+
+
+# ── Staff login & accounts ───────────────────────────────────────────────────
+
+@app.post("/api/auth/login")
+def staff_login():
+    data = request.get_json(force=True) or {}
+    username = (data.get("username") or "").strip().lower()
+    password = data.get("password") or ""
+    user = User.query.filter(db.func.lower(User.username) == username).first() if username else None
+
+    if not user or not check_password_hash(user.password_hash, password):
+        if user:
+            # A wrong password on a real account is worth the owner knowing about.
+            db.session.add(ActivityLog(
+                id=gen_id(), actor_id=user.id, actor_name=user.name, actor_role=user.role,
+                shop_id=user.shop_id, action="login_failed",
+                summary=f"Failed login attempt for {user.username}",
+            ))
+            db.session.commit()
+        return jsonify({"error": "Wrong username or password."}), 401
+    if user.is_active is False:
+        return jsonify({"error": "This account has been disabled. Ask the admin."}), 403
+
+    user.last_login = datetime.now(timezone.utc)
+    db.session.add(ActivityLog(
+        id=gen_id(), actor_id=user.id, actor_name=user.name, actor_role=user.role,
+        shop_id=user.shop_id, action="login", summary=f"{user.name} signed in",
+    ))
+    db.session.commit()
+    return jsonify(user.to_dict())
+
+
+@app.get("/api/users")
+def list_users():
+    return jsonify([u.to_dict() for u in User.query.order_by(User.created_at).all()])
+
+
+def apply_user(user, data):
+    for field in ("name", "phone"):
+        if field in data:
+            setattr(user, field, (data.get(field) or "").strip() or None)
+    if "username" in data:
+        user.username = (data.get("username") or "").strip().lower()
+    if data.get("role") in ("admin", "attendant"):
+        user.role = data["role"]
+    if "shop_id" in data:
+        user.shop_id = data.get("shop_id") or None
+    if "is_active" in data:
+        user.is_active = bool(data["is_active"])
+    if data.get("password"):
+        if len(data["password"]) < 4:
+            raise ValueError("Passwords need at least 4 characters.")
+        user.password_hash = generate_password_hash(data["password"])
+
+
+@app.post("/api/users")
+def create_user():
+    data = request.get_json(force=True) or {}
+    if not (data.get("name") or "").strip() or not (data.get("username") or "").strip():
+        return jsonify({"error": "A name and username are required."}), 400
+    if not data.get("password"):
+        return jsonify({"error": "Set a password for the new user."}), 400
+    if User.query.filter(db.func.lower(User.username) == data["username"].strip().lower()).first():
+        return jsonify({"error": "That username is taken."}), 409
+
+    user = User(id=gen_id(), name="", username="", password_hash="")
+    try:
+        apply_user(user, data)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    if user.role == "attendant" and not user.shop_id:
+        user.shop_id = main_shop().id
+    db.session.add(user)
+    log_activity("user_added", f"Added {user.role} {user.name} ({user.username}) to {shop_name(user.shop_id)}",
+                 entity_id=user.id, shop_id=user.shop_id)
+    db.session.commit()
+    return jsonify(user.to_dict()), 201
+
+
+@app.put("/api/users/<user_id>")
+def update_user(user_id):
+    user = User.query.get_or_404(user_id)
+    data = request.get_json(force=True) or {}
+    if "username" in data:
+        clash = User.query.filter(
+            db.func.lower(User.username) == (data["username"] or "").strip().lower(), User.id != user.id
+        ).first()
+        if clash:
+            return jsonify({"error": "That username is taken."}), 409
+    try:
+        apply_user(user, data)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    what = "reset the password of" if data.get("password") else "updated"
+    log_activity("user_updated", f"Admin {what} {user.name}", entity_id=user.id, shop_id=user.shop_id)
+    db.session.commit()
+    return jsonify(user.to_dict())
+
+
+@app.delete("/api/users/<user_id>")
+def delete_user(user_id):
+    user = User.query.get_or_404(user_id)
+    log_activity("user_removed", f"Removed user {user.name} ({user.username})", entity_id=user.id,
+                 shop_id=user.shop_id)
+    db.session.delete(user)
+    db.session.commit()
+    return jsonify({"ok": True, "deleted": user_id})
+
+
+# ── Shops ────────────────────────────────────────────────────────────────────
+
+@app.get("/api/shops")
+def list_shops():
+    main_shop()
+    shops = Shop.query.order_by(Shop.is_main.desc(), Shop.created_at).all()
+    return jsonify([s.to_dict() for s in shops])
+
+
+@app.post("/api/shops")
+def create_shop():
+    data = request.get_json(force=True) or {}
+    name = (data.get("name") or "").strip()
+    if not name:
+        return jsonify({"error": "Give the shop a name."}), 400
+    shop = Shop(id=gen_id(), name=name, location=data.get("location"), phone=data.get("phone"))
+    db.session.add(shop)
+    log_activity("shop_added", f"Opened shop {name}", entity_id=shop.id, shop_id=shop.id)
+    db.session.commit()
+    return jsonify(shop.to_dict()), 201
+
+
+@app.put("/api/shops/<shop_id>")
+def update_shop(shop_id):
+    shop = Shop.query.get_or_404(shop_id)
+    data = request.get_json(force=True) or {}
+    for field in ("name", "location", "phone"):
+        if field in data:
+            setattr(shop, field, data.get(field))
+    if "is_active" in data and not shop.is_main:
+        shop.is_active = bool(data["is_active"])
+    log_activity("shop_updated", f"Updated shop {shop.name}", entity_id=shop.id, shop_id=shop.id)
+    db.session.commit()
+    return jsonify(shop.to_dict())
+
+
+@app.delete("/api/shops/<shop_id>")
+def delete_shop(shop_id):
+    shop = Shop.query.get_or_404(shop_id)
+    if shop.is_main:
+        return jsonify({"error": "The main shop can't be removed."}), 400
+    if Product.query.filter_by(shop_id=shop.id).count() or Sale.query.filter_by(shop_id=shop.id).count():
+        return jsonify({"error": "This shop has products or sales. Close it instead of deleting it."}), 400
+    log_activity("shop_removed", f"Removed shop {shop.name}", entity_id=shop.id, shop_id=shop.id)
+    db.session.delete(shop)
+    db.session.commit()
+    return jsonify({"ok": True, "deleted": shop_id})
+
+
+@app.post("/api/shops/<target_id>/copy-products")
+def copy_products(target_id):
+    """
+    Copies products from one shop into another. Anything already in the target
+    with the same name is skipped, so running it twice never duplicates.
+    Stock starts at zero unless copy_stock is set: goods don't move by copying.
+    """
+    target = Shop.query.get_or_404(target_id)
+    data = request.get_json(force=True) or {}
+    source_id = data.get("source_shop_id")
+    if not source_id or source_id == target.id:
+        return jsonify({"error": "Pick a different shop to copy from."}), 400
+
+    query = Product.query.filter(Product.shop_id == source_id)
+    if not data.get("all"):
+        ids = data.get("product_ids") or []
+        if not ids:
+            return jsonify({"error": "Choose at least one product."}), 400
+        query = query.filter(Product.id.in_(ids))
+
+    existing = {
+        (p.name or "").strip().lower()
+        for p in Product.query.filter(Product.shop_id == target.id).with_entities(Product.name)
+    }
+    copied, skipped = 0, 0
+    for src in query.all():
+        if (src.name or "").strip().lower() in existing:
+            skipped += 1
+            continue
+        clone = Product(
+            id=gen_id(), name=src.name, slug=src.slug, description=src.description,
+            price=src.price, sales_price=src.sales_price, currency=src.currency, sku=src.sku,
+            barcode=src.barcode, images=src.images, status=src.status,
+            stock=src.stock if data.get("copy_stock") else 0,
+            low_stock_threshold=src.low_stock_threshold, product_type=src.product_type,
+            rental_terms=src.rental_terms, specs=src.specs, visible_on_site=src.visible_on_site,
+            visible_in_pos=src.visible_in_pos, shop_id=target.id,
+        )
+        clone.categories = list(src.categories)
+        db.session.add(clone)
+        existing.add((src.name or "").strip().lower())
+        copied += 1
+
+    log_activity(
+        "products_copied",
+        f"Copied {copied} product{'s' if copied != 1 else ''} from {shop_name(source_id)} to {target.name}"
+        + (f" ({skipped} already there)" if skipped else ""),
+        entity_id=target.id,
+        shop_id=target.id,
+    )
+    db.session.commit()
+    return jsonify({"copied": copied, "skipped": skipped})
+
+
+# ── Activity trail ───────────────────────────────────────────────────────────
+
+@app.get("/api/activity")
+def list_activity():
+    query = ActivityLog.query
+    for field in ("shop_id", "actor_id", "action"):
+        value = request.args.get(field)
+        if value:
+            query = query.filter(getattr(ActivityLog, field) == value)
+    if request.args.get("flagged") == "1":
+        query = query.filter(ActivityLog.flagged.is_(True))
+    if request.args.get("staff_only") == "1":
+        query = query.filter(ActivityLog.actor_role.in_(["attendant", "admin"]))
+    limit = min(int(request.args.get("limit", 200)), 500)
+    rows = query.order_by(ActivityLog.created_at.desc()).limit(limit).all()
+    return jsonify([r.to_dict() for r in rows])
+
+
+@app.get("/api/activity/unseen")
+def unseen_activity():
+    base = ActivityLog.query.filter(ActivityLog.seen.is_(False))
+    return jsonify({
+        "unseen": base.count(),
+        "flagged": base.filter(ActivityLog.flagged.is_(True)).count(),
+    })
+
+
+@app.post("/api/activity/seen")
+def mark_activity_seen():
+    data = request.get_json(force=True, silent=True) or {}
+    query = ActivityLog.query.filter(ActivityLog.seen.is_(False))
+    if data.get("ids"):
+        query = query.filter(ActivityLog.id.in_(data["ids"]))
+    query.update({ActivityLog.seen: True}, synchronize_session=False)
+    g.activity_logged = True
+    db.session.commit()
+    return jsonify({"ok": True})
+
+
+@app.get("/api/activity/staff-summary")
+def staff_summary():
+    """Today's sales per person, so the owner can compare tills at closing."""
+    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    query = db.session.query(
+        Sale.sold_by_id, Sale.sold_by_name, Sale.shop_id,
+        db.func.count(Sale.id), db.func.coalesce(db.func.sum(Sale.total), 0),
+    ).filter(Sale.created_at >= today_start)
+    shop_id = request.args.get("shop_id")
+    if shop_id:
+        query = query.filter(Sale.shop_id == shop_id)
+    rows = query.group_by(Sale.sold_by_id, Sale.sold_by_name, Sale.shop_id).all()
+    return jsonify([
+        {"user_id": r[0], "name": r[1] or "Unknown", "shop_id": r[2], "sales": r[3], "total": float(r[4])}
+        for r in rows
+    ])
 
 
 # ── Store info ───────────────────────────────────────────────────────────────
@@ -1145,11 +1711,15 @@ def run_migrations():
             ("specs", "TEXT"),
             ("visible_on_site", "BOOLEAN DEFAULT TRUE"),
             ("visible_in_pos", "BOOLEAN DEFAULT TRUE"),
+            ("shop_id", "VARCHAR(36)"),
         ],
         "sale": [
             ("delivery_fee", "DOUBLE PRECISION DEFAULT 0"),
             ("fulfilment", "VARCHAR(20) DEFAULT 'pickup'"),
             ("delivery_address", "VARCHAR(500)"),
+            ("shop_id", "VARCHAR(36)"),
+            ("sold_by_id", "VARCHAR(36)"),
+            ("sold_by_name", "VARCHAR(120)"),
         ],
     }
 
@@ -1183,11 +1753,17 @@ def run_migrations():
     )
     db.session.commit()
 
+    # Everything that existed before shops did belongs to the main shop.
+    main_id = main_shop().id
+    db.session.execute(db.text("UPDATE product SET shop_id = :id WHERE shop_id IS NULL"), {"id": main_id})
+    db.session.execute(db.text("UPDATE sale SET shop_id = :id WHERE shop_id IS NULL"), {"id": main_id})
+    db.session.commit()
+
 
 with app.app_context():
     db.create_all()
-    run_migrations()
     seed_data()
+    run_migrations()
 
 
 if __name__ == "__main__":
