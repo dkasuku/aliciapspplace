@@ -21,6 +21,8 @@ export interface Product {
   visible_on_site?: boolean;
   visible_in_pos?: boolean;
   shop_id?: string | null;
+  /** Shops that carry a copy of this product (matched by name). */
+  available_in?: string[];
   created_at?: string;
   updated_at?: string;
 }

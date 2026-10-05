@@ -626,6 +626,66 @@ def delete_category(cat_id):
 
 
 # ── Product routes ───────────────────────────────────────────────────────────
+#
+# Each shop holds its own copy of a product (own stock, own sales). Copies are
+# matched across shops by name, which is what "available in" means.
+
+def name_key(name):
+    return (name or "").strip().lower()
+
+
+def shop_copies(product):
+    """This product's copies in every shop, keyed by shop id (includes itself)."""
+    key = name_key(product.name)
+    rows = Product.query.filter(db.func.lower(db.func.trim(Product.name)) == key).all()
+    return {p.shop_id: p for p in rows}
+
+
+def availability_map():
+    """name -> shop ids carrying it, for the whole catalogue in one query."""
+    found = {}
+    for name, shop_id in db.session.query(Product.name, Product.shop_id).all():
+        found.setdefault(name_key(name), set()).add(shop_id)
+    return found
+
+
+def clone_product(src, shop_id, stock=0):
+    clone = Product(
+        id=gen_id(), name=src.name, slug=src.slug, description=src.description,
+        price=src.price, sales_price=src.sales_price, currency=src.currency, sku=src.sku,
+        barcode=src.barcode, images=src.images, status=src.status, stock=stock,
+        low_stock_threshold=src.low_stock_threshold, product_type=src.product_type,
+        rental_terms=src.rental_terms, specs=src.specs, visible_on_site=src.visible_on_site,
+        visible_in_pos=src.visible_in_pos, shop_id=shop_id,
+    )
+    clone.categories = list(src.categories)
+    db.session.add(clone)
+    return clone
+
+
+def remove_product(product):
+    """
+    Stock movements are history of the product itself and go with it; sale
+    lines keep their recorded name and price and simply lose the link, so past
+    receipts and revenue stay intact.
+    """
+    for movement in StockMovement.query.filter_by(product_id=product.id).all():
+        db.session.delete(movement)
+    for line in SaleItem.query.filter_by(product_id=product.id).all():
+        line.product_id = None
+    product.categories.clear()
+    db.session.flush()
+    db.session.delete(product)
+
+
+def product_json(product, availability=None):
+    data = product.to_dict()
+    if availability is None:
+        data["available_in"] = sorted(shop_copies(product).keys(), key=str)
+    else:
+        data["available_in"] = sorted(availability.get(name_key(product.name), {product.shop_id}), key=str)
+    return data
+
 
 @app.get("/api/products")
 def list_products():
@@ -668,13 +728,16 @@ def list_products():
             query = query.filter(Product.product_type == product_type)
 
     products = query.order_by(Product.created_at.desc()).all()
-    return jsonify([p.to_dict() for p in products])
+    if channel == "site":
+        return jsonify([p.to_dict() for p in products])
+    availability = availability_map()
+    return jsonify([product_json(p, availability) for p in products])
 
 
 @app.get("/api/products/<product_id>")
 def get_product(product_id):
     product = Product.query.get_or_404(product_id)
-    return jsonify(product.to_dict())
+    return jsonify(product_json(product))
 
 
 @app.post("/api/products")
@@ -705,15 +768,24 @@ def create_product():
     )
     for cat_name in data.get("categories", []):
         product.categories.append(get_or_create_category(cat_name))
+    # Managers can list several shops; the opening stock goes into each one.
+    # Attendants always add to their own shop only.
+    shop_ids = [] if is_attendant() else [sid for sid in (data.get("shop_ids") or []) if sid]
+    if shop_ids:
+        product.shop_id = shop_ids[0]
     db.session.add(product)
+    for extra in dict.fromkeys(shop_ids[1:]):
+        if extra != product.shop_id:
+            clone_product(product, extra, stock=product.stock)
+    where = ", ".join(shop_name(sid) for sid in (shop_ids or [product.shop_id]))
     log_activity(
         "product_added",
-        f"Added product {product.name} · KES {product.price:,.0f} · {product.stock} in stock",
+        f"Added product {product.name} · KES {product.price:,.0f} · {product.stock} in stock · {where}",
         entity_id=product.id,
         shop_id=product.shop_id,
     )
     db.session.commit()
-    return jsonify(product.to_dict()), 201
+    return jsonify(product_json(product)), 201
 
 
 @app.put("/api/products/<product_id>")
@@ -723,6 +795,8 @@ def update_product(product_id):
     import json
 
     old_price, old_sales_price, old_stock = product.price, product.sales_price, product.stock
+    # Find the other shops' copies before a rename breaks the name match.
+    siblings = [p for p in shop_copies(product).values() if p.id != product.id] if data.get("apply_to_all_shops") else []
     product.name = data.get("name", product.name)
     product.slug = slugify(data.get("slug", product.slug))
     product.description = data.get("description", product.description)
@@ -748,6 +822,16 @@ def update_product(product_id):
         for cat_name in data["categories"]:
             product.categories.append(get_or_create_category(cat_name))
 
+    # Everything but stock is shared: each shop counts its own shelves.
+    for sibling in siblings:
+        for field in (
+            "name", "slug", "description", "price", "sales_price", "currency", "sku", "barcode", "images",
+            "status", "low_stock_threshold", "product_type", "rental_terms", "specs", "visible_on_site",
+            "visible_in_pos",
+        ):
+            setattr(sibling, field, getattr(product, field))
+        sibling.categories = list(product.categories)
+
     changes = []
     if product.price != old_price or product.sales_price != old_sales_price:
         changes.append(
@@ -757,13 +841,57 @@ def update_product(product_id):
         changes.append(f"stock {old_stock} → {product.stock}")
     log_activity(
         "product_edited",
-        f"Edited {product.name}" + (f" ({', '.join(changes)})" if changes else ""),
+        f"Edited {product.name}" + (f" ({', '.join(changes)})" if changes else "")
+        + (f" in all {len(siblings) + 1} shops" if siblings else ""),
         entity_id=product.id,
         shop_id=product.shop_id,
         flag="Stock lowered by editing the product" if product.stock < old_stock and is_attendant() else None,
     )
     db.session.commit()
-    return jsonify(product.to_dict())
+    return jsonify(product_json(product))
+
+
+@app.put("/api/products/<product_id>/shops")
+def set_product_shops(product_id):
+    """
+    Makes the product available in exactly the given shops: copies it into new
+    ones (stock 0, restock there) and removes it from shops that were unticked.
+    """
+    product = Product.query.get_or_404(product_id)
+    data = request.get_json(force=True) or {}
+    wanted = [sid for sid in dict.fromkeys(data.get("shop_ids") or []) if Shop.query.get(sid)]
+    if not wanted:
+        return jsonify({"error": "Keep the product in at least one shop."}), 400
+
+    copies = shop_copies(product)
+    added = [sid for sid in wanted if sid not in copies]
+    removed = [sid for sid in copies if sid not in wanted]
+    # Keep the copy the admin opened if it stays; otherwise one that stays.
+    template = product if product.shop_id in wanted else next((copies[s] for s in wanted if s in copies), product)
+
+    for sid in added:
+        clone_product(template, sid, stock=0)
+    stock_dropped = 0
+    for sid in removed:
+        stock_dropped += copies[sid].stock or 0
+        remove_product(copies[sid])
+
+    if added or removed:
+        parts = []
+        if added:
+            parts.append("added to " + ", ".join(shop_name(s) for s in added))
+        if removed:
+            parts.append("removed from " + ", ".join(shop_name(s) for s in removed))
+        log_activity(
+            "product_shops",
+            f"{template.name}: " + "; ".join(parts),
+            entity_id=template.id,
+            shop_id=template.shop_id,
+            flag=f"Removed from a shop with {stock_dropped} in stock" if stock_dropped > 0 else None,
+        )
+    db.session.commit()
+    keep = Product.query.get(template.id) or next(iter(shop_copies(template).values()), None)
+    return jsonify(product_json(keep) if keep else {"ok": True})
 
 
 @app.delete("/api/products/<product_id>")
@@ -775,14 +903,6 @@ def delete_product(product_id):
     link, so past receipts and revenue stay intact.
     """
     product = Product.query.get_or_404(product_id)
-
-    for movement in StockMovement.query.filter_by(product_id=product.id).all():
-        db.session.delete(movement)
-    for line in SaleItem.query.filter_by(product_id=product.id).all():
-        line.product_id = None
-    product.categories.clear()
-    db.session.flush()
-
     log_activity(
         "product_deleted",
         f"Deleted product {product.name} ({product.stock} were in stock)",
@@ -790,7 +910,7 @@ def delete_product(product_id):
         shop_id=product.shop_id,
         flag="Product deleted with stock on hand" if (product.stock or 0) > 0 else None,
     )
-    db.session.delete(product)
+    remove_product(product)
     db.session.commit()
     return jsonify({"ok": True, "deleted": product_id})
 
@@ -1525,17 +1645,7 @@ def copy_products(target_id):
         if (src.name or "").strip().lower() in existing:
             skipped += 1
             continue
-        clone = Product(
-            id=gen_id(), name=src.name, slug=src.slug, description=src.description,
-            price=src.price, sales_price=src.sales_price, currency=src.currency, sku=src.sku,
-            barcode=src.barcode, images=src.images, status=src.status,
-            stock=src.stock if data.get("copy_stock") else 0,
-            low_stock_threshold=src.low_stock_threshold, product_type=src.product_type,
-            rental_terms=src.rental_terms, specs=src.specs, visible_on_site=src.visible_on_site,
-            visible_in_pos=src.visible_in_pos, shop_id=target.id,
-        )
-        clone.categories = list(src.categories)
-        db.session.add(clone)
+        clone_product(src, target.id, stock=src.stock if data.get("copy_stock") else 0)
         existing.add((src.name or "").strip().lower())
         copied += 1
 

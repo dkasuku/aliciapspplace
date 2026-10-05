@@ -39,10 +39,13 @@ export function ProductsManager({
   categories,
   canManage,
   shops,
+  activeShopId,
 }: {
   initialProducts: Product[];
   categories: Category[];
   shops: Shop[];
+  /** The shop picked in "Working in"; null means all shops. */
+  activeShopId: string | null;
   /** Attendants can add products but not edit prices or delete. */
   canManage: boolean;
 }) {
@@ -95,6 +98,9 @@ export function ProductsManager({
     visible_on_site: true,
     visible_in_pos: true,
     specs: [] as Array<{ label: string; value: string }>,
+    // New products default to the shop being worked in, or every open shop.
+    shop_ids: activeShopId ? [activeShopId] : shops.filter((s) => s.is_active).map((s) => s.id),
+    apply_to_all_shops: true,
   };
 
   const [form, setForm] = useState(emptyForm);
@@ -135,6 +141,8 @@ export function ProductsManager({
       visible_on_site: product.visible_on_site !== false,
       visible_in_pos: product.visible_in_pos !== false,
       specs: product.specs || [],
+      shop_ids: product.available_in?.length ? product.available_in : product.shop_id ? [product.shop_id] : [],
+      apply_to_all_shops: true,
     });
     setDialogOpen(true);
   }
@@ -156,7 +164,13 @@ export function ProductsManager({
       visible_on_site: form.visible_on_site,
       visible_in_pos: form.visible_in_pos,
       specs: form.specs.filter((row) => row.label.trim() && row.value.trim()),
+      ...(canManage && !editing ? { shop_ids: form.shop_ids } : {}),
+      ...(editing ? { apply_to_all_shops: form.apply_to_all_shops } : {}),
     };
+    if (canManage && shops.length > 1 && form.shop_ids.length === 0) {
+      setSaveError("Pick at least one shop for this product.");
+      return;
+    }
 
     setSaveError(null);
     startTransition(async () => {
@@ -173,8 +187,27 @@ export function ProductsManager({
           const data = await res.json().catch(() => null) as { error?: unknown } | null;
           throw new Error(typeof data?.error === "string" ? data.error : `The product could not be saved (HTTP ${res.status}).`);
         }
-        const saved = await res.json();
-        if (editing) {
+        const saved = (await res.json()) as Product;
+
+        // Ticking or unticking shops on an existing product adds or removes those shops' copies.
+        const before = [...(editing?.available_in ?? [])].sort().join();
+        if (editing && canManage && shops.length > 1 && [...form.shop_ids].sort().join() !== before) {
+          const shopRes = await fetch(`/api/admin/backend/api/products/${saved.id}/shops`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ shop_ids: form.shop_ids }),
+          });
+          if (!shopRes.ok) {
+            const data = (await shopRes.json().catch(() => null)) as { error?: string } | null;
+            throw new Error(data?.error || "Saved, but the shop list could not be updated.");
+          }
+        }
+
+        // Copies in other shops may have been added, changed or removed: reload the list.
+        const listRes = await fetch("/api/admin/backend/api/products", { cache: "no-store" });
+        if (listRes.ok) {
+          setProducts(await listRes.json());
+        } else if (editing) {
           setProducts((prev) => prev.map((p) => (p.id === saved.id ? saved : p)));
         } else {
           setProducts((prev) => [saved, ...prev]);
@@ -330,7 +363,7 @@ export function ProductsManager({
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
-                <TableHead>Shop</TableHead>
+                <TableHead>Shops</TableHead>
                 <TableHead>SKU</TableHead>
                 <TableHead>Price</TableHead>
                 <TableHead>Sale Price</TableHead>
@@ -347,9 +380,17 @@ export function ProductsManager({
                 <TableRow key={p.id}>
                   <TableCell className="font-medium">{p.name}</TableCell>
                   <TableCell>
-                    <Badge variant="outline" className="whitespace-nowrap text-[10px]">
-                      {shopNames.get(p.shop_id || "") || "Shop 1"}
-                    </Badge>
+                    <span className="flex flex-wrap gap-1">
+                      {(p.available_in?.length ? p.available_in : [p.shop_id || ""]).map((id) => (
+                        <Badge
+                          key={id}
+                          variant={id === p.shop_id ? "secondary" : "outline"}
+                          className="whitespace-nowrap text-[10px]"
+                        >
+                          {shopNames.get(id) || "Shop 1"}
+                        </Badge>
+                      ))}
+                    </span>
                   </TableCell>
                   <TableCell className="text-[#64748b]">{p.sku || "—"}</TableCell>
                   <TableCell>{money(p.price)}</TableCell>
@@ -557,6 +598,50 @@ export function ProductsManager({
                 <Plus className="mr-1 h-3 w-3" /> Add feature
               </Button>
             </div>
+
+            {canManage && shops.length > 1 && (
+              <div className="grid gap-2">
+                <Label>Available in shops</Label>
+                <div className="flex flex-wrap gap-4 rounded-lg border border-[#166534]/20 p-4">
+                  {shops
+                    .filter((shop) => shop.is_active || form.shop_ids.includes(shop.id))
+                    .map((shop) => (
+                      <label key={shop.id} className="flex items-center gap-2 text-sm text-[#334155]">
+                        <input
+                          type="checkbox"
+                          checked={form.shop_ids.includes(shop.id)}
+                          onChange={(e) =>
+                            setForm((prev) => ({
+                              ...prev,
+                              shop_ids: e.target.checked
+                                ? [...prev.shop_ids, shop.id]
+                                : prev.shop_ids.filter((id) => id !== shop.id),
+                            }))
+                          }
+                          className="h-4 w-4 accent-[#166534]"
+                        />
+                        {shop.name}
+                      </label>
+                    ))}
+                </div>
+                <p className="text-xs text-[#94a3b8]">
+                  {editing
+                    ? "Ticking a shop adds the product there with 0 stock (restock it in that shop). Unticking removes it from that shop."
+                    : "The stock you enter goes into each ticked shop."}
+                </p>
+                {editing && (editing.available_in?.length ?? 0) > 1 && (
+                  <label className="flex items-center gap-2 text-sm text-[#334155]">
+                    <input
+                      type="checkbox"
+                      checked={form.apply_to_all_shops}
+                      onChange={(e) => setForm({ ...form, apply_to_all_shops: e.target.checked })}
+                      className="h-4 w-4 accent-[#166534]"
+                    />
+                    Apply these changes (price, name, details) to every shop. Stock stays per shop.
+                  </label>
+                )}
+              </div>
+            )}
 
             <div className="grid gap-2">
               <Label>Where this product appears</Label>

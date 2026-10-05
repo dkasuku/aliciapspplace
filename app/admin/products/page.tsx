@@ -7,7 +7,7 @@ import type { Category, Product, Shop } from "@/lib/api/types";
 export const dynamic = "force-dynamic";
 
 export default async function AdminProductsPage() {
-  const { headers, manager } = await adminContext();
+  const { headers, manager, shopId } = await adminContext();
   let products: Product[] = [];
   let categories: Category[] = [];
   let shops: Shop[] = [];
@@ -19,5 +19,5 @@ export default async function AdminProductsPage() {
     ]);
   } catch {}
   if (!categories.length) categories = fallbackCategories;
-  return <ProductsManager initialProducts={products} categories={categories} canManage={manager} shops={shops} />;
+  return <ProductsManager initialProducts={products} categories={categories} canManage={manager} shops={shops} activeShopId={shopId} />;
 }
