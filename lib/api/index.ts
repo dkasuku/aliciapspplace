@@ -21,7 +21,7 @@ const API_URL = process.env.API_URL || "http://localhost:5000";
 type Headers = Record<string, string>;
 
 class ApiError extends Error {
-  constructor(message: string, public readonly status: number) {
+  constructor(message: string, public readonly status: number, public readonly payload?: unknown) {
     super(message);
     this.name = "ApiError";
   }
@@ -46,7 +46,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     const message = typeof payload === "object" && payload && "error" in payload
       ? String(payload.error)
       : `API request failed with status ${res.status}`;
-    throw new ApiError(message, res.status);
+    throw new ApiError(message, res.status, payload);
   }
   return payload as T;
 }

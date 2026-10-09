@@ -7,7 +7,11 @@ import type { Product } from "@/lib/api/types";
 function errorResponse(error: unknown) {
   const status = error instanceof ApiError ? error.status : 502;
   const message = error instanceof Error ? error.message : "Unable to save the product.";
-  return NextResponse.json({ error: message }, { status });
+  // A 409 names the product that already exists, so the form can offer a restock.
+  const existing = error instanceof ApiError && error.payload && typeof error.payload === "object"
+    ? (error.payload as { existing?: unknown }).existing
+    : undefined;
+  return NextResponse.json({ error: message, existing }, { status });
 }
 
 export async function POST(request: Request) {

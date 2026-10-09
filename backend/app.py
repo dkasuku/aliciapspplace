@@ -4,6 +4,7 @@ from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
 from datetime import datetime, timezone
 import uuid as uuid_lib
+import re
 from werkzeug.security import generate_password_hash, check_password_hash
 import json
 import os
@@ -630,8 +631,23 @@ def delete_category(cat_id):
 # Each shop holds its own copy of a product (own stock, own sales). Copies are
 # matched across shops by name, which is what "available in" means.
 
+def clean_name(name):
+    """Collapses stray spaces so "SAMSUNG CHARGER   TYPE C" can't sit beside its twin."""
+    return re.sub(r"\s+", " ", name or "").strip()
+
+
 def name_key(name):
-    return (name or "").strip().lower()
+    return clean_name(name).lower()
+
+
+def existing_in_shop(name, shop_id, exclude_id=None):
+    """The product with this name already in the shop, ignoring case and spacing."""
+    query = Product.query.filter(
+        Product.shop_id == shop_id, db.func.lower(db.func.trim(Product.name)) == name_key(name)
+    )
+    if exclude_id:
+        query = query.filter(Product.id != exclude_id)
+    return query.first()
 
 
 def shop_copies(product):
@@ -745,10 +761,28 @@ def create_product():
     data = request.get_json(force=True)
     import json
 
+    name = clean_name(data.get("name"))
+    if not name:
+        return jsonify({"error": "A product name is required."}), 400
+    shop_ids = [] if is_attendant() else [sid for sid in (data.get("shop_ids") or []) if sid]
+    targets = shop_ids or [current_shop_id() or data.get("shop_id") or main_shop().id]
+
+    # Adding a product that's already on the shelf used to create a second copy
+    # (staff re-entered phones each time they counted one). Refuse, and hand the
+    # existing product back so the admin app can offer a restock instead.
+    for shop_id in targets:
+        existing = existing_in_shop(name, shop_id)
+        if existing:
+            return jsonify({
+                "error": f"{existing.name} already exists in {shop_name(shop_id)} "
+                         f"with {existing.stock} in stock. Restock it instead of adding it again.",
+                "existing": existing.to_dict(),
+            }), 409
+
     product = Product(
         id=gen_id(),
-        name=data["name"],
-        slug=slugify(data["name"]),
+        name=name,
+        slug=slugify(name),
         description=data.get("description"),
         price=float(data.get("price", 0)),
         sales_price=float(data["sales_price"]) if data.get("sales_price") else None,
@@ -770,7 +804,6 @@ def create_product():
         product.categories.append(get_or_create_category(cat_name))
     # Managers can list several shops; the opening stock goes into each one.
     # Attendants always add to their own shop only.
-    shop_ids = [] if is_attendant() else [sid for sid in (data.get("shop_ids") or []) if sid]
     if shop_ids:
         product.shop_id = shop_ids[0]
     db.session.add(product)
@@ -797,7 +830,13 @@ def update_product(product_id):
     old_price, old_sales_price, old_stock = product.price, product.sales_price, product.stock
     # Find the other shops' copies before a rename breaks the name match.
     siblings = [p for p in shop_copies(product).values() if p.id != product.id] if data.get("apply_to_all_shops") else []
-    product.name = data.get("name", product.name)
+    new_name = clean_name(data.get("name", product.name)) or product.name
+    if name_key(new_name) != name_key(product.name):
+        for shop_id in {product.shop_id, *(sib.shop_id for sib in siblings)}:
+            clash = existing_in_shop(new_name, shop_id)
+            if clash:
+                return jsonify({"error": f"{shop_name(shop_id)} already has a product called {clash.name}."}), 409
+    product.name = new_name
     product.slug = slugify(data.get("slug", product.slug))
     product.description = data.get("description", product.description)
     product.price = float(data.get("price", product.price))
@@ -934,6 +973,7 @@ def list_inventory():
             "low_stock_threshold": p.low_stock_threshold,
             "status": p.status,
             "is_low": p.stock <= p.low_stock_threshold,
+            "shop_id": p.shop_id,
             "price": p.price,
             "sales_price": p.sales_price,
         })
@@ -1637,16 +1677,16 @@ def copy_products(target_id):
         query = query.filter(Product.id.in_(ids))
 
     existing = {
-        (p.name or "").strip().lower()
+        name_key(p.name)
         for p in Product.query.filter(Product.shop_id == target.id).with_entities(Product.name)
     }
     copied, skipped = 0, 0
     for src in query.all():
-        if (src.name or "").strip().lower() in existing:
+        if name_key(src.name) in existing:
             skipped += 1
             continue
         clone_product(src, target.id, stock=src.stock if data.get("copy_stock") else 0)
-        existing.add((src.name or "").strip().lower())
+        existing.add(name_key(src.name))
         copied += 1
 
     log_activity(

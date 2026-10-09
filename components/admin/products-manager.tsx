@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useRef } from "react";
+import { useMemo, useState, useTransition, useRef } from "react";
 import { Plus, Pencil, Trash2, Search, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -61,7 +61,29 @@ export function ProductsManager({
   const [typeFilter, setTypeFilter] = useState<"all" | "sale" | "rental">("all");
   const [channelFilter, setChannelFilter] = useState<"all" | "site" | "pos" | "hidden">("all");
 
-  const filtered = products.filter((p) => {
+  // In "All shops" each product exists once per shop. Show it once, with the
+  // stock added up across shops, rather than three identical-looking rows.
+  const rows = useMemo(() => {
+    if (activeShopId) return products;
+    const mainId = shops.find((s) => s.is_main)?.id;
+    const grouped = new Map<string, Product & { stockByShop: Record<string, number> }>();
+    for (const p of products) {
+      const key = p.name.trim().replace(/\s+/g, " ").toLowerCase();
+      const seen = grouped.get(key);
+      if (!seen) {
+        grouped.set(key, { ...p, stockByShop: { [p.shop_id || ""]: p.stock ?? 0 } });
+        continue;
+      }
+      const stockByShop = { ...seen.stockByShop, [p.shop_id || ""]: p.stock ?? 0 };
+      const total = Object.values(stockByShop).reduce((a, b) => a + b, 0);
+      // Edit through the main shop's copy when there is one.
+      const base = p.shop_id === mainId ? p : seen;
+      grouped.set(key, { ...base, stock: total, stockByShop });
+    }
+    return [...grouped.values()];
+  }, [products, activeShopId, shops]);
+
+  const filtered = rows.filter((p) => {
     const term = search.toLowerCase();
     const matchesTerm =
       !term || p.name.toLowerCase().includes(term) || (p.sku?.toLowerCase().includes(term) ?? false);
@@ -184,7 +206,24 @@ export function ProductsManager({
           body: JSON.stringify(payload),
         });
         if (!res.ok) {
-          const data = await res.json().catch(() => null) as { error?: unknown } | null;
+          const data = await res.json().catch(() => null) as { error?: unknown; existing?: Product } | null;
+          const existing = data?.existing;
+          const qty = parseInt(form.stock) || 0;
+          if (res.status === 409 && existing && !editing && qty > 0 && confirm(
+            `${existing.name} is already in ${shopNames.get(existing.shop_id || "") || "this shop"} with ${existing.stock ?? 0} in stock.\n\n` +
+            `Add ${qty} to its stock instead of creating a duplicate?`,
+          )) {
+            const restock = await fetch(`/api/admin/backend/api/inventory/restock/${existing.id}`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ quantity: qty, reason: "Added again from the product form" }),
+            });
+            if (!restock.ok) throw new Error("Could not restock the existing product.");
+            const listRes = await fetch("/api/admin/backend/api/products", { cache: "no-store" });
+            if (listRes.ok) setProducts(await listRes.json());
+            setDialogOpen(false);
+            return;
+          }
           throw new Error(typeof data?.error === "string" ? data.error : `The product could not be saved (HTTP ${res.status}).`);
         }
         const saved = (await res.json()) as Product;
@@ -301,7 +340,9 @@ export function ProductsManager({
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-[#0f172a]">Products</h2>
-          <p className="text-sm text-[#64748b]">{products.length} products in catalog</p>
+          <p className="text-sm text-[#64748b]">
+            {rows.length} products{activeShopId ? ` in ${shopNames.get(activeShopId) || "this shop"}` : " across all shops"}
+          </p>
         </div>
         <Button onClick={openCreate}>
           <Plus className="mr-2 h-4 w-4" /> Add product
@@ -396,7 +437,16 @@ export function ProductsManager({
                   <TableCell>{money(p.price)}</TableCell>
                   <TableCell>{p.sales_price ? money(p.sales_price) : "—"}</TableCell>
                   <TableCell>
-                    <Badge variant={p.stock === 0 ? "destructive" : (p.stock ?? 0) <= (p.low_stock_threshold ?? 5) ? "warning" : "secondary"}>
+                    <Badge
+                      variant={p.stock === 0 ? "destructive" : (p.stock ?? 0) <= (p.low_stock_threshold ?? 5) ? "warning" : "secondary"}
+                      title={
+                        "stockByShop" in p
+                          ? Object.entries((p as { stockByShop: Record<string, number> }).stockByShop)
+                              .map(([id, n]) => `${shopNames.get(id) || "Shop"}: ${n}`)
+                              .join("\n")
+                          : undefined
+                      }
+                    >
                       {p.stock ?? 0}
                     </Badge>
                   </TableCell>

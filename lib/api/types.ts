@@ -90,6 +90,7 @@ export interface InventoryItem {
   low_stock_threshold: number;
   status: string;
   is_low: boolean;
+  shop_id?: string | null;
   price: number;
   sales_price?: number | null;
 }

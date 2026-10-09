@@ -33,7 +33,16 @@ import { Pagination, usePagination } from "./pagination";
 // Same-origin admin proxy — see app/api/admin/backend/[...path]/route.ts
 const API_URL = "/api/admin/backend";
 
-export function InventoryManager({ initialItems, canAdjust }: { initialItems: InventoryItem[]; canAdjust: boolean }) {
+export function InventoryManager({
+  initialItems,
+  canAdjust,
+  shopNames = {},
+}: {
+  initialItems: InventoryItem[];
+  canAdjust: boolean;
+  /** Filled only in "All shops", where each row belongs to one shop. */
+  shopNames?: Record<string, string>;
+}) {
   const [items, setItems] = useState(initialItems);
   const [actionError, setActionError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -178,7 +187,12 @@ export function InventoryManager({ initialItems, canAdjust }: { initialItems: In
             <TableBody>
               {paging.visible.map((item) => (
                 <TableRow key={item.id}>
-                  <TableCell className="font-medium">{item.name}</TableCell>
+                  <TableCell className="font-medium">
+                    {item.name}
+                    {item.shop_id && shopNames[item.shop_id] && (
+                      <Badge variant="outline" className="ml-2 text-[10px]">{shopNames[item.shop_id]}</Badge>
+                    )}
+                  </TableCell>
                   <TableCell className="text-[#64748b]">{item.sku || "—"}</TableCell>
                   <TableCell>
                     <Badge variant={item.stock === 0 ? "destructive" : item.is_low ? "warning" : "secondary"}>
